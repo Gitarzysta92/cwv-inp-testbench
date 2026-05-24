@@ -1,0 +1,27 @@
+{
+  "$schema": "./bench-matrix.schema.json",
+  "outputDir": "bench-results",
+  "runs": 2,
+  "aggregate": {
+    "percentiles": [50, 75, 95],
+    "trimExtremesPercent": 0,
+    "acceptableDeltaMs": 40,
+    "metrics": ["eventTimingMaxMs", "wallClockMs", "searchTypingWallMs", "inpMs"]
+  },
+  "configurations": [
+    {
+      "id": "baseline",
+      "label": "No targeted slowdown",
+      "env": {}
+    },
+    {
+      "id": "slow-targeted",
+      "label": "Per-testid spin (filter, filters 1–4, gallery thumb, cart, search keys)",
+      "env": {
+        "BENCH_SLOW_CLICK_JSON": "{\"filter-electronics\":100,\"filter-1\":40,\"filter-2\":40,\"filter-3\":40,\"filter-4\":80,\"gallery-thumb-3\":100,\"add-to-cart\":80,\"cart-plus\":70,\"add-first-product\":50,\"open-cart\":30}",
+        "BENCH_SLOW_KEYDOWN_JSON": "{\"search-input\":12}"
+      }
+    }
+  ],
+  "playwrightArgs": []
+}

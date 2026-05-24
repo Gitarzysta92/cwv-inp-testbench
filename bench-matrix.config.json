@@ -1,0 +1,27 @@
+{
+  "$schema": "./bench-matrix.schema.json",
+  "outputDir": "bench-results",
+  "runs": 5,
+  "aggregate": {
+    "percentiles": [50, 75, 95],
+    "trimExtremesPercent": 0,
+    "acceptableDeltaMs": 40,
+    "metrics": ["eventTimingMaxMs", "wallClockMs", "searchTypingWallMs", "inpMs"]
+  },
+  "configurations": [
+    {
+      "id": "chromium-desktop",
+      "label": "Chromium desktop 1280×720 headless",
+      "env": {}
+    },
+    {
+      "id": "chromium-mobile-ish",
+      "label": "Chromium narrow viewport (390×844)",
+      "env": {
+        "BENCH_VIEWPORT_WIDTH": "390",
+        "BENCH_VIEWPORT_HEIGHT": "844"
+      }
+    }
+  ],
+  "playwrightArgs": []
+}

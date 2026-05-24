@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "id": "1", "name": "Earbuds", "category": "electronics", "price": 49 },
+    { "id": "2", "name": "Kettle", "category": "home", "price": 35 },
+    { "id": "3", "name": "Lamp", "category": "home", "price": 22 },
+    { "id": "4", "name": "Router", "category": "electronics", "price": 79 }
+  ]
+}

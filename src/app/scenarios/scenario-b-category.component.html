@@ -1,0 +1,52 @@
+<main class="sbc" data-testid="scenario-b-category">
+  <h1>Scenario B — category</h1>
+
+  <section class="sbc__scroll" data-testid="scroll-region" tabindex="0">
+    @for (line of filler; track line) {
+      <p class="sbc__line">{{ line }}</p>
+    }
+  </section>
+
+  <section class="sbc__filters" aria-label="Filters">
+    <button
+      type="button"
+      class="sbc__filter"
+      data-testid="filter-1"
+      [attr.aria-pressed]="applied().includes(1)"
+      (click)="toggleFilter(1)"
+    >
+      Filter 1
+    </button>
+    <button
+      type="button"
+      class="sbc__filter"
+      data-testid="filter-2"
+      [attr.aria-pressed]="applied().includes(2)"
+      (click)="toggleFilter(2)"
+    >
+      Filter 2
+    </button>
+    <button
+      type="button"
+      class="sbc__filter"
+      data-testid="filter-3"
+      [attr.aria-pressed]="applied().includes(3)"
+      (click)="toggleFilter(3)"
+    >
+      Filter 3
+    </button>
+    <button
+      type="button"
+      class="sbc__filter"
+      data-testid="filter-4"
+      [attr.aria-pressed]="applied().includes(4)"
+      (click)="toggleFilter(4)"
+    >
+      Filter 4
+    </button>
+  </section>
+
+  <p class="sbc__state" data-testid="filters-applied">
+    Applied: {{ applied().join(', ') || 'none' }}
+  </p>
+</main>

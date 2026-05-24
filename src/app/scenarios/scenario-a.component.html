@@ -1,0 +1,32 @@
+<main class="sa" data-testid="scenario-a-root">
+  <h1 class="sa__title">Scenario A — product gallery</h1>
+  @if (error()) {
+    <p class="sa__err" data-testid="scenario-a-error">{{ error() }}</p>
+  } @else if (data()) {
+    <h2 class="sa__product" data-testid="product-title">{{ data()!.title }}</h2>
+    <div class="sa__main">
+      <img
+        class="sa__hero"
+        data-testid="main-image"
+        [src]="data()!.thumbnails[selected()]"
+        width="160"
+        height="160"
+        alt="Main"
+      />
+      <div class="sa__thumbs" role="list" aria-label="Gallery">
+        @for (src of data()!.thumbnails; track $index) {
+          <button
+            type="button"
+            class="sa__thumb"
+            role="listitem"
+            [attr.data-testid]="'gallery-thumb-' + $index"
+            [attr.aria-pressed]="selected() === $index"
+            (click)="selectThumb($index)"
+          >
+            <img [src]="src" width="80" height="80" alt="" />
+          </button>
+        }
+      </div>
+    </div>
+  }
+</main>

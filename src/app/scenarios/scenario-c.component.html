@@ -1,0 +1,16 @@
+<main class="sc" data-testid="scenario-c-root">
+  <h1 class="sc__title">Scenario C — search</h1>
+  <label class="sc__lab">
+    Search
+    <input
+      class="sc__input"
+      type="search"
+      data-testid="search-input"
+      [ngModel]="query()"
+      (ngModelChange)="query.set($event)"
+      autocomplete="off"
+      spellcheck="false"
+    />
+  </label>
+  <p class="sc__hint" data-testid="search-preview">{{ query() }}</p>
+</main>
