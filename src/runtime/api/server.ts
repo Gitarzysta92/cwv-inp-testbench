@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import * as http from 'http';
+import { beginBrowserSession } from '../driver/cdp/browser-session';
+import { waitForBrowserAppliance } from '../driver/wait-for-browser';
 import { prepareRuntimeContext } from '../prepare-context';
 import type {
   ApiErrorResponse,
+  BrowserStatusResponse,
   PrepareStepRequest,
   PrepareStepResponse,
   ReleaseStepRequest,
@@ -11,8 +14,18 @@ import type {
 } from './types';
 import { RUNTIME_API_SCHEMA } from './types';
 
-const PORT = Number(process.env['RUNTIME_DRIVER_PORT'] ?? 8090);
-const APP_BASE_URL = process.env['APP_BASE_URL']?.trim() ?? 'http://127.0.0.1:4200';
+const defaultPort = () => Number(process.env['RUNTIME_DRIVER_PORT'] ?? 8090);
+const browserCdpUrl = () => process.env['BROWSER_CDP_URL']?.trim();
+const browserAppBaseUrl = () => process.env['BROWSER_APP_BASE_URL']?.trim();
+const hostBrowserCdpUrl = () => process.env['HOST_BROWSER_CDP_URL']?.trim();
+
+type ActiveStep = {
+  release: () => Promise<void>;
+};
+
+const activeSteps = new Map<string, ActiveStep>();
+const NETWORK_KINDS = new Set(['mock-static', 'dev-server', 'live']);
+const WARMUP_POLICIES = new Set(['cold', 'warm_assets', 'warm_session']);
 
 function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' });
@@ -31,40 +44,230 @@ async function readJsonBody<T>(req: http.IncomingMessage): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-function resolveAppBaseUrl(requestOverride?: string): string {
-  return requestOverride?.trim() || APP_BASE_URL;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === 'string';
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function validatePrepareStepRequest(input: unknown): string | undefined {
+  if (!isRecord(input)) {
+    return 'request body must be an object';
+  }
+  if (!isNonEmptyString(input['stepKey'])) {
+    return 'stepKey is required';
+  }
+
+  const profile = input['profile'];
+  if (!isRecord(profile)) {
+    return 'profile is required';
+  }
+  if (!isNonEmptyString(profile['id'])) {
+    return 'profile.id is required';
+  }
+  if (!WARMUP_POLICIES.has(String(profile['warmup']))) {
+    return 'profile.warmup must be cold, warm_assets, or warm_session';
+  }
+
+  const network = profile['network'];
+  if (!isRecord(network)) {
+    return 'profile.network is required';
+  }
+  if (!NETWORK_KINDS.has(String(network['kind']))) {
+    return 'profile.network.kind must be mock-static, dev-server, or live';
+  }
+  if (!isOptionalString(network['baseUrl']) || !isOptionalString(network['proxyUrl'])) {
+    return 'profile.network baseUrl/proxyUrl must be strings when provided';
+  }
+  if (network['blockScripts'] !== undefined && !isStringArray(network['blockScripts'])) {
+    return 'profile.network.blockScripts must be a string array when provided';
+  }
+
+  const application = profile['application'];
+  if (!isRecord(application) || !isNonEmptyString(application['apiMode'])) {
+    return 'profile.application.apiMode is required';
+  }
+
+  const device = profile['device'];
+  if (
+    !isRecord(device) ||
+    typeof device['width'] !== 'number' ||
+    typeof device['height'] !== 'number' ||
+    !Number.isFinite(device['width']) ||
+    !Number.isFinite(device['height'])
+  ) {
+    return 'profile.device.width and profile.device.height must be finite numbers';
+  }
+
+  const system = profile['system'];
+  if (
+    !isRecord(system) ||
+    !isNonEmptyString(system['locale']) ||
+    !isNonEmptyString(system['timezoneId'])
+  ) {
+    return 'profile.system.locale and profile.system.timezoneId are required';
+  }
+
+  const baseUrlOverride = input['baseUrlOverride'];
+  if (baseUrlOverride !== undefined && typeof baseUrlOverride !== 'string') {
+    return 'baseUrlOverride must be a string when provided';
+  }
+
+  return undefined;
+}
+
+function validateReleaseStepRequest(input: unknown): string | undefined {
+  if (!isRecord(input)) {
+    return 'request body must be an object';
+  }
+  if (!isNonEmptyString(input['stepKey'])) {
+    return 'stepKey is required';
+  }
+  return undefined;
+}
+
+function resolveBrowserCdpUrl(): string {
+  const url = browserCdpUrl();
+  if (!url) {
+    throw new Error('BROWSER_CDP_URL is not configured on runtime driver');
+  }
+  return url;
+}
+
+function resolveHostBrowserCdpUrl(): string {
+  return hostBrowserCdpUrl() ?? browserCdpUrl() ?? 'http://127.0.0.1:9222';
+}
+
+function resolveBrowserAppBaseUrl(requestOverride?: string): string {
+  return browserAppBaseUrl() ?? requestOverride?.trim() ?? 'http://127.0.0.1:4200';
+}
+
+async function handleBrowserStatus(res: http.ServerResponse): Promise<void> {
+  const cdpUrl = browserCdpUrl();
+  if (!cdpUrl) {
+    const body: BrowserStatusResponse = {
+      schema: RUNTIME_API_SCHEMA,
+      ready: false,
+      cdpUrl: resolveHostBrowserCdpUrl(),
+      error: 'BROWSER_CDP_URL is not configured on runtime driver',
+    };
+    sendJson(res, 503, body);
+    return;
+  }
+
+  try {
+    const versionUrl = `${cdpUrl.replace(/\/$/, '')}/json/version`;
+    const versionRes = await fetch(versionUrl, { signal: AbortSignal.timeout(3_000) });
+    const version = versionRes.ok ? ((await versionRes.json()) as Record<string, unknown>) : undefined;
+    const body: BrowserStatusResponse = {
+      schema: RUNTIME_API_SCHEMA,
+      ready: versionRes.ok,
+      cdpUrl: resolveHostBrowserCdpUrl(),
+      version,
+    };
+    sendJson(res, versionRes.ok ? 200 : 503, body);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const body: BrowserStatusResponse = {
+      schema: RUNTIME_API_SCHEMA,
+      ready: false,
+      cdpUrl: resolveHostBrowserCdpUrl(),
+      error: message,
+    };
+    sendJson(res, 503, body);
+  }
 }
 
 async function handlePrepareStep(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const input = await readJsonBody<PrepareStepRequest>(req);
-  if (!input.stepKey?.trim()) {
+  const input = await readJsonBody<unknown>(req);
+  const validationError = validatePrepareStepRequest(input);
+  if (validationError) {
     sendJson(res, 400, {
       schema: RUNTIME_API_SCHEMA,
-      error: 'stepKey is required',
+      error: validationError,
+    } satisfies ApiErrorResponse);
+    return;
+  }
+  const prepareInput = input as PrepareStepRequest;
+
+  if (activeSteps.has(prepareInput.stepKey)) {
+    sendJson(res, 409, {
+      schema: RUNTIME_API_SCHEMA,
+      error: `step "${prepareInput.stepKey}" is already active`,
     } satisfies ApiErrorResponse);
     return;
   }
 
-  const appBaseUrl = resolveAppBaseUrl(input.baseUrlOverride);
-  const runtime = prepareRuntimeContext(input.profile, {
+  const cdpUrl = resolveBrowserCdpUrl();
+  await waitForBrowserAppliance({ cdpUrl });
+
+  const appBaseUrl = resolveBrowserAppBaseUrl(prepareInput.baseUrlOverride);
+  const runtime = prepareRuntimeContext(prepareInput.profile, {
     baseUrlOverride: appBaseUrl,
   });
+  runtime.env['BENCH_RUNTIME_PREPARED'] = '1';
+
+  const session = await beginBrowserSession({
+    cdpUrl,
+    policy: runtime.policy,
+    profile: prepareInput.profile,
+    appBaseUrl,
+  });
+  activeSteps.set(prepareInput.stepKey, session);
 
   const body: PrepareStepResponse = {
     schema: RUNTIME_API_SCHEMA,
-    stepKey: input.stepKey,
+    stepKey: prepareInput.stepKey,
     runtime,
-    appBaseUrl,
+    browser: {
+      cdpUrl: resolveHostBrowserCdpUrl(),
+      appBaseUrl,
+      targetId: session.target.id,
+    },
     prepared: true,
   };
   sendJson(res, 200, body);
 }
 
 async function handleReleaseStep(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const input = await readJsonBody<ReleaseStepRequest>(req);
+  const input = await readJsonBody<unknown>(req);
+  const validationError = validateReleaseStepRequest(input);
+  if (validationError) {
+    sendJson(res, 400, {
+      schema: RUNTIME_API_SCHEMA,
+      error: validationError,
+    } satisfies ApiErrorResponse);
+    return;
+  }
+  const releaseInput = input as ReleaseStepRequest;
+
+  const active = activeSteps.get(releaseInput.stepKey);
+  if (!active) {
+    const body: ReleaseStepResponse = {
+      schema: RUNTIME_API_SCHEMA,
+      stepKey: releaseInput.stepKey,
+      released: false,
+    };
+    sendJson(res, 200, body);
+    return;
+  }
+
+  activeSteps.delete(releaseInput.stepKey);
+  await active.release();
+
   const body: ReleaseStepResponse = {
     schema: RUNTIME_API_SCHEMA,
-    stepKey: input.stepKey,
+    stepKey: releaseInput.stepKey,
     released: true,
   };
   sendJson(res, 200, body);
@@ -73,7 +276,14 @@ async function handleReleaseStep(req: http.IncomingMessage, res: http.ServerResp
 export async function startRuntimeApiServer(options?: {
   port?: number;
 }): Promise<http.Server> {
-  const port = options?.port ?? PORT;
+  const port = options?.port ?? defaultPort();
+  const cdpUrl = browserCdpUrl();
+
+  if (cdpUrl) {
+    console.error(`Runtime driver: waiting for browser API at ${cdpUrl} …`);
+    await waitForBrowserAppliance({ cdpUrl });
+    console.error('Runtime driver: browser API ready.\n');
+  }
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -81,9 +291,15 @@ export async function startRuntimeApiServer(options?: {
         const body: RuntimeHealthResponse = {
           schema: RUNTIME_API_SCHEMA,
           status: 'ok',
-          appBaseUrl: APP_BASE_URL,
+          browserCdpUrl: browserCdpUrl() ? resolveHostBrowserCdpUrl() : undefined,
+          appBaseUrl: resolveBrowserAppBaseUrl(),
         };
         sendJson(res, 200, body);
+        return;
+      }
+
+      if (req.method === 'GET' && req.url === '/v1/browser/status') {
+        await handleBrowserStatus(res);
         return;
       }
 
@@ -100,7 +316,8 @@ export async function startRuntimeApiServer(options?: {
       sendJson(res, 404, { schema: RUNTIME_API_SCHEMA, error: 'not found' } satisfies ApiErrorResponse);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      sendJson(res, 500, { schema: RUNTIME_API_SCHEMA, error: message } satisfies ApiErrorResponse);
+      const status = err instanceof SyntaxError || message === 'empty request body' ? 400 : 500;
+      sendJson(res, status, { schema: RUNTIME_API_SCHEMA, error: message } satisfies ApiErrorResponse);
     }
   });
 

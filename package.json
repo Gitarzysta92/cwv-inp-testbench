@@ -10,7 +10,10 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "bench": "tsx src/orchestrator/main.ts",
-    "bench:runtime-api": "tsx src/runtime/api/server.ts"
+    "bench:runtime-api": "tsx src/runtime/api/server.ts",
+    "runtime:test": "tsx src/runtime/tests/run.ts",
+    "runtime:docker:build": "docker build -t cwv-runtime -f src/runtime/Dockerfile .",
+    "runtime:docker:run": "docker run --rm --shm-size=2g -p 8090:8090 -p 9223:9223 cwv-runtime"
   },
   "private": true,
   "dependencies": {
