@@ -1,13 +1,21 @@
 import { defineConfig, devices } from '@playwright/test';
-import { chromiumLabArgs } from './e2e/helpers/chromium-lab-args';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4200';
-const skipWebServer = !!process.env.PLAYWRIGHT_SKIP_WEBSERVER;
-const orchestrated = process.env.BENCH_ORCHESTRATED === '1';
+const chromiumLabArgs = [
+  '--disable-background-networking',
+  '--disable-component-extensions-with-background-pages',
+  '--disable-extensions',
+  '--mute-audio',
+  '--no-first-run',
+  '--no-default-browser-check',
+];
 
-const viewportWidth = Number(process.env.BENCH_VIEWPORT_WIDTH ?? '1280');
-const viewportHeight = Number(process.env.BENCH_VIEWPORT_HEIGHT ?? '720');
-const headed = process.env.BENCH_HEADED === '1';
+const baseURL = process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://127.0.0.1:4200';
+const skipWebServer = !!process.env['PLAYWRIGHT_SKIP_WEBSERVER'];
+const orchestrated = process.env['BENCH_ORCHESTRATED'] === '1';
+
+const viewportWidth = Number(process.env['BENCH_VIEWPORT_WIDTH'] ?? '1280');
+const viewportHeight = Number(process.env['BENCH_VIEWPORT_HEIGHT'] ?? '720');
+const headed = process.env['BENCH_HEADED'] === '1';
 
 /**
  * Container-oriented defaults: one worker, stable viewport/locale/timezone, Chromium-only POC.
@@ -17,13 +25,13 @@ const headed = process.env.BENCH_HEADED === '1';
  * e2e/fixtures/bench-test.ts connectOverCDP instead of launching Chromium locally.
  */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '../../scenarios/playwright-web-vitals',
   fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env['CI'],
+  retries: process.env['CI'] ? 1 : 0,
   workers: 1,
   reporter: orchestrated
-    ? [['list'], ['./e2e/reporters/bench-reporter.ts']]
+    ? [['list']]
     : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,
@@ -56,7 +64,7 @@ export default defineConfig({
     : {
         command: 'npm run start -- --host 127.0.0.1 --port 4200',
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: !process.env['CI'],
         stdout: 'pipe',
         stderr: 'pipe',
       },

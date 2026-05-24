@@ -87,8 +87,7 @@ fi
 
 export BROWSER_CDP_URL="http://127.0.0.1:${CDP_PORT}"
 export HOST_BROWSER_CDP_URL="${HOST_BROWSER_CDP_URL:-http://127.0.0.1:${CDP_PUBLIC_PORT}}"
-export BROWSER_APP_BASE_URL="${BROWSER_APP_BASE_URL:-https://www.google.com}"
 export RUNTIME_DRIVER_PORT="${DRIVER_PORT}"
 
-echo "Runtime driver API on :${DRIVER_PORT} (app ${BROWSER_APP_BASE_URL})"
+echo "Runtime driver API on :${DRIVER_PORT}"
 exec npx tsx src/runtime/api/server.ts

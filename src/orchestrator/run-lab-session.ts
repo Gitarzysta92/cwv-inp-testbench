@@ -111,7 +111,6 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
     const scenario = definition.scenarios.find((s) => s.id === step.scenarioId)!;
 
     let runtime: RuntimeContext;
-    const browserConnect = resolveBrowserConnect();
     const stepKey = `${sessionId}-${step.sessionStepIndex}`;
 
     if (runtimeApi) {
@@ -121,11 +120,18 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
         stepKey,
       });
       runtime = prepared.runtime;
+      if (prepared.browser.cdpUrl) {
+        runtime.env['BROWSER_CDP_URL'] = prepared.browser.cdpUrl;
+      }
+      runtime.env['BROWSER_TARGET_ID'] = prepared.browser.targetId;
     } else {
       runtime = prepareRuntimeContext(profile, {
         baseUrlOverride: options.baseUrl,
       });
     }
+    const browserConnect = runtime.env['BROWSER_CDP_URL']
+      ? { mode: 'cdp' as const, cdpUrl: runtime.env['BROWSER_CDP_URL'] }
+      : resolveBrowserConnect();
 
     console.error(
       `\n━━━ step ${step.sessionStepIndex + 1}/${sessionPlan.length}: ` +

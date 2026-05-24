@@ -9,6 +9,10 @@ import type {
 const DEFAULT_TIMEOUT_MS = 60_000;
 const POLL_MS = 500;
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type RuntimeApiClientOptions = {
   baseUrl: string;
   timeoutMs?: number;
@@ -56,16 +60,27 @@ export class RuntimeApiClient {
   }
 
   async releaseStep(input: ReleaseStepRequest): Promise<ReleaseStepResponse> {
-    const res = await fetch(`${this.baseUrl}/v1/step/release`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(this.timeoutMs),
-    });
-    const body = (await res.json()) as ReleaseStepResponse | { error: string };
-    if (!res.ok) {
-      throw new Error(`runtime release failed (${res.status}): ${'error' in body ? body.error : res.statusText}`);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`${this.baseUrl}/v1/step/release`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+        const body = (await res.json()) as ReleaseStepResponse | { error: string };
+        if (!res.ok) {
+          throw new Error(`runtime release failed (${res.status}): ${'error' in body ? body.error : res.statusText}`);
+        }
+        return body as ReleaseStepResponse;
+      } catch (err) {
+        lastError = err;
+        if (attempt === 0) {
+          await delay(POLL_MS);
+        }
+      }
     }
-    return body as ReleaseStepResponse;
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 }

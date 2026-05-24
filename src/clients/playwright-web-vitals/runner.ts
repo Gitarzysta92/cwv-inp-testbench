@@ -16,8 +16,14 @@ export class PlaywrightRunner {
     fs.mkdirSync(legacyRawDir, { recursive: true });
 
     const profile = input.definition.profiles.find((p) => p.id === input.step.profileId)!;
+    const spec =
+      process.env['BENCH_PLAYWRIGHT_SPEC'] ??
+      'src/scenarios/playwright-web-vitals/scenarios-a-d.spec.ts';
+    const config =
+      process.env['BENCH_PLAYWRIGHT_CONFIG'] ??
+      'src/clients/playwright-web-vitals/playwright.config.ts';
 
-    const env = {
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
       ...input.runtime.env,
       ...prepareClientEnv(profile),
@@ -33,8 +39,17 @@ export class PlaywrightRunner {
       BENCH_SCENARIO_ID: input.step.scenarioId,
     };
 
-    const spec = 'e2e/scenarios-a-d.spec.ts';
-    const result = spawnSync('npx', ['playwright', 'test', spec], {
+    if (input.runtime.env['BROWSER_CDP_URL']) {
+      env['BENCH_BROWSER_CONNECT_MODE'] = 'cdp';
+      env['PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD'] = '1';
+      env['PLAYWRIGHT_SKIP_WEBSERVER'] = '1';
+    }
+
+    if (input.runtime.network.kind === 'live') {
+      env['PLAYWRIGHT_SKIP_WEBSERVER'] = '1';
+    }
+
+    const result = spawnSync('npx', ['playwright', 'test', spec, '--config', config], {
       cwd: input.repoRoot,
       env,
       stdio: 'inherit',

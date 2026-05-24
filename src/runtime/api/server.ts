@@ -16,7 +16,6 @@ import { RUNTIME_API_SCHEMA } from './types';
 
 const defaultPort = () => Number(process.env['RUNTIME_DRIVER_PORT'] ?? 8090);
 const browserCdpUrl = () => process.env['BROWSER_CDP_URL']?.trim();
-const browserAppBaseUrl = () => process.env['BROWSER_APP_BASE_URL']?.trim();
 const hostBrowserCdpUrl = () => process.env['HOST_BROWSER_CDP_URL']?.trim();
 
 type ActiveStep = {
@@ -148,10 +147,6 @@ function resolveHostBrowserCdpUrl(): string {
   return hostBrowserCdpUrl() ?? browserCdpUrl() ?? 'http://127.0.0.1:9222';
 }
 
-function resolveBrowserAppBaseUrl(requestOverride?: string): string {
-  return browserAppBaseUrl() ?? requestOverride?.trim() ?? 'http://127.0.0.1:4200';
-}
-
 async function handleBrowserStatus(res: http.ServerResponse): Promise<void> {
   const cdpUrl = browserCdpUrl();
   if (!cdpUrl) {
@@ -211,10 +206,12 @@ async function handlePrepareStep(req: http.IncomingMessage, res: http.ServerResp
   const cdpUrl = resolveBrowserCdpUrl();
   await waitForBrowserAppliance({ cdpUrl });
 
-  const appBaseUrl = resolveBrowserAppBaseUrl(prepareInput.baseUrlOverride);
-  const runtime = prepareRuntimeContext(prepareInput.profile, {
-    baseUrlOverride: appBaseUrl,
-  });
+  const configuredBaseUrl = prepareInput.baseUrlOverride?.trim();
+  const runtime = prepareRuntimeContext(
+    prepareInput.profile,
+    configuredBaseUrl ? { baseUrlOverride: configuredBaseUrl } : {},
+  );
+  const appBaseUrl = runtime.baseUrl;
   runtime.env['BENCH_RUNTIME_PREPARED'] = '1';
 
   const session = await beginBrowserSession({
@@ -292,7 +289,6 @@ export async function startRuntimeApiServer(options?: {
           schema: RUNTIME_API_SCHEMA,
           status: 'ok',
           browserCdpUrl: browserCdpUrl() ? resolveHostBrowserCdpUrl() : undefined,
-          appBaseUrl: resolveBrowserAppBaseUrl(),
         };
         sendJson(res, 200, body);
         return;
