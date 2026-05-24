@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test';
 import { installBenchMocks } from '../fixtures/api-mock';
+import { installBlockScripts } from '../fixtures/block-scripts';
 import { installSlowdownFromBenchEnv } from '../fixtures/bench-env-setup';
 
 export type WarmupMode = 'cold' | 'warm_assets' | 'warm_session';
@@ -18,7 +19,10 @@ export async function prepareBenchPage(
   page: Page,
   context: BrowserContext,
 ): Promise<void> {
-  await installBenchMocks(page);
+  if (process.env['BENCH_MOCK_NETWORK'] !== '0') {
+    await installBenchMocks(page);
+  }
+  await installBlockScripts(page);
   await installSlowdownFromBenchEnv(page);
   const mode = getWarmupMode();
   if (mode !== 'cold') return;

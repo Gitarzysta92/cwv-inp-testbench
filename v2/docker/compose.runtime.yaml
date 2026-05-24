@@ -1,0 +1,43 @@
+# Runtime + browser — mock app, runtime driver API, browser CDP API.
+# Orchestrator + clients run on the host and call runtime driver over HTTP.
+#
+# Usage:
+#   docker compose -f v2/docker/compose.runtime.yaml up -d
+#   npm run bench:v2 -- --docker manage
+
+name: cwv-v2-runtime
+
+services:
+  browser:
+    build:
+      context: ../..
+      dockerfile: v2/docker/browser/Dockerfile
+    shm_size: '2gb'
+    ports:
+      - '9222:9222'
+    environment:
+      BROWSER_HEADLESS: '1'
+    networks:
+      - bench
+
+  runtime:
+    build:
+      context: ../..
+      dockerfile: v2/docker/runtime/Dockerfile
+    depends_on:
+      browser:
+        condition: service_healthy
+    ports:
+      - '4200:4200'
+      - '8090:8090'
+    environment:
+      BROWSER_CDP_URL: http://browser:9222
+      BROWSER_APP_BASE_URL: http://runtime:4200
+      HOST_BROWSER_CDP_URL: http://127.0.0.1:9222
+      RUNTIME_DRIVER_PORT: '8090'
+    networks:
+      - bench
+
+networks:
+  bench:
+    driver: bridge

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/bench-test';
 import {
   collectLabMetrics,
   readRecentEventTiming,
@@ -13,6 +13,7 @@ import {
   scenarioUrl,
   warmupNavigation,
 } from './helpers/warmup';
+import { isScenarioSelected } from './helpers/scenario-filter';
 
 const THINK_MS = 80;
 const SEARCH_TYPING_MS = 35;
@@ -31,6 +32,7 @@ test.describe('Lab scenarios A–D', () => {
   });
 
   test('A — first product / gallery thumbnail', async ({ page }, testInfo) => {
+    test.skip(!isScenarioSelected(LAB_SCENARIO_IDS.aFirstThumb), 'BENCH_SCENARIO_ID filter');
     const mode = getWarmupMode();
     await warmupNavigation(page, mode, scenarioUrl('/scenario/a'));
     await page.goto('/scenario/a', { waitUntil: 'domcontentloaded' });
@@ -52,6 +54,7 @@ test.describe('Lab scenarios A–D', () => {
   });
 
   test('B — category filters (measure 4th after 1–3)', async ({ page }, testInfo) => {
+    test.skip(!isScenarioSelected(LAB_SCENARIO_IDS.bFourthFilter), 'BENCH_SCENARIO_ID filter');
     const mode = getWarmupMode();
     await warmupNavigation(page, mode, scenarioUrl('/scenario/b'));
     await page.goto('/scenario/b', { waitUntil: 'domcontentloaded' });
@@ -80,6 +83,7 @@ test.describe('Lab scenarios A–D', () => {
   });
 
   test('C — search typing (Polish phrase)', async ({ page }, testInfo) => {
+    test.skip(!isScenarioSelected(LAB_SCENARIO_IDS.cSearchTyping), 'BENCH_SCENARIO_ID filter');
     const mode = getWarmupMode();
     await warmupNavigation(page, mode, scenarioUrl('/scenario/c'));
     await page.goto('/scenario/c', { waitUntil: 'domcontentloaded' });
@@ -117,6 +121,7 @@ test.describe('Lab scenarios A–D', () => {
   });
 
   test('D — cart quantity after journey', async ({ page }, testInfo) => {
+    test.skip(!isScenarioSelected(LAB_SCENARIO_IDS.dCartPlus), 'BENCH_SCENARIO_ID filter');
     const mode = getWarmupMode();
     await warmupNavigation(page, mode, scenarioUrl('/scenario/d/browse'));
     await page.goto('/scenario/d/browse', { waitUntil: 'networkidle' });

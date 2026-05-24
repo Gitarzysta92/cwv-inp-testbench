@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { chromiumLabArgs } from './e2e/helpers/chromium-lab-args';
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:4200';
 const skipWebServer = !!process.env.PLAYWRIGHT_SKIP_WEBSERVER;
@@ -11,6 +12,9 @@ const headed = process.env.BENCH_HEADED === '1';
 /**
  * Container-oriented defaults: one worker, stable viewport/locale/timezone, Chromium-only POC.
  * Bench orchestrator sets BENCH_VIEWPORT_*, BENCH_HEADED, BENCH_ORCHESTRATED.
+ *
+ * Browser appliance (code ↔ browser split): set BROWSER_CDP_URL; specs use
+ * e2e/fixtures/bench-test.ts connectOverCDP instead of launching Chromium locally.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -34,12 +38,7 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     launchOptions: {
-      args: [
-        '--disable-background-networking',
-        '--disable-component-extensions-with-background-pages',
-        '--disable-extensions',
-        '--mute-audio',
-      ],
+      args: chromiumLabArgs,
     },
   },
   projects: [

@@ -14,6 +14,15 @@
     "bench:compare": "node scripts/bench-orchestrator.mjs --config ./bench-matrix.compare.json",
     "bench:profiles": "node scripts/bench-orchestrator.mjs --config ./bench-matrix.profiles.json",
     "bench:aggregate": "node scripts/bench-aggregate.mjs",
+    "bench:v2": "tsx v2/src/orchestrator/main.ts",
+    "bench:v2:runtime-api": "tsx v2/src/runtime/api/server.ts",
+    "bench:v2:clients-api": "tsx v2/src/clients/api/server.ts",
+    "bench:v2:appliance": "v2/scripts/start-browser-appliance.sh",
+    "bench:v2:docker": "tsx v2/src/orchestrator/main.ts --docker manage",
+    "bench:v2:docker:runtime": "docker compose -f v2/docker/compose.runtime.yaml up -d --build",
+    "bench:v2:docker:full": "docker compose -f v2/docker/compose.yaml up --build --abort-on-container-exit",
+    "bench:v2:docker:live": "docker compose -f v2/docker/compose.live.yaml up --build --abort-on-container-exit",
+    "bench:v2:docker:build": "docker compose -f v2/docker/compose.runtime.yaml build",
     "lh": "node scripts/lighthouse-run.mjs"
   },
   "private": true,
@@ -45,6 +54,7 @@
     "karma-jasmine-html-reporter": "~2.1.0",
     "lighthouse": "^12.8.2",
     "serve": "^14.2.6",
+    "tsx": "^4.22.3",
     "typescript": "~5.7.2"
   }
 }

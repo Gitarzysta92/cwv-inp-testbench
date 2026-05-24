@@ -1,0 +1,62 @@
+# v2 lab stack — OPTIONAL full stack (runtime + browser + clients all in Docker).
+# Default is runtime-only: see compose.runtime.yaml + orchestrator --docker manage.
+
+name: cwv-v2
+
+services:
+  runtime:
+    build:
+      context: ../..
+      dockerfile: v2/docker/runtime/Dockerfile
+    ports:
+      - '4200:4200'
+      - '8090:8090'
+    depends_on:
+      browser:
+        condition: service_healthy
+    environment:
+      BROWSER_CDP_URL: http://browser:9222
+      BROWSER_APP_BASE_URL: http://runtime:4200
+      HOST_BROWSER_CDP_URL: http://127.0.0.1:9222
+      RUNTIME_DRIVER_PORT: '8090'
+    networks:
+      - bench
+
+  browser:
+    build:
+      context: ../..
+      dockerfile: v2/docker/browser/Dockerfile
+    shm_size: '2gb'
+    ports:
+      - '9222:9222'
+    environment:
+      BROWSER_HEADLESS: '1'
+    networks:
+      - bench
+
+  clients:
+    build:
+      context: ../..
+      dockerfile: v2/docker/clients/Dockerfile
+    depends_on:
+      runtime:
+        condition: service_healthy
+      browser:
+        condition: service_healthy
+    environment:
+      PLAYWRIGHT_BASE_URL: http://runtime:4200
+      BROWSER_CDP_URL: http://browser:9222
+      CWV_CLIENTS_MODE: ${CWV_CLIENTS_MODE:-worker}
+      CLIENTS_API_PORT: 8080
+      BENCH_HOST_CLASS: docker-cdp-split
+      BENCH_REPLICATES: ${BENCH_REPLICATES:-1}
+    ports:
+      - '8080:8080'
+    volumes:
+      - ../../bench-results/v2:/app/bench-results/v2
+    networks:
+      - bench
+
+networks:
+  bench:
+    driver: bridge

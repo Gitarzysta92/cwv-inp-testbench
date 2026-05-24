@@ -1,0 +1,46 @@
+# Live site lab — runtime container omitted; browser hits external HTTPS directly.
+#
+#   PLAYWRIGHT_BASE_URL=https://www.euro.com.pl
+#
+# Usage:
+#   docker compose -f v2/docker/compose.live.yaml up --build --abort-on-container-exit
+
+name: cwv-v2-live
+
+services:
+  browser:
+    build:
+      context: ../..
+      dockerfile: v2/docker/browser/Dockerfile
+    shm_size: '2gb'
+    ports:
+      - '9222:9222'
+    environment:
+      BROWSER_HEADLESS: '1'
+    networks:
+      - bench
+
+  clients:
+    build:
+      context: ../..
+      dockerfile: v2/docker/clients/Dockerfile
+    depends_on:
+      browser:
+        condition: service_healthy
+    environment:
+      PLAYWRIGHT_BASE_URL: ${PLAYWRIGHT_BASE_URL:-https://www.euro.com.pl}
+      BROWSER_CDP_URL: http://browser:9222
+      CWV_CLIENTS_MODE: ${CWV_CLIENTS_MODE:-worker}
+      CLIENTS_API_PORT: 8080
+      BENCH_HOST_CLASS: docker-live
+      BENCH_REPLICATES: ${BENCH_REPLICATES:-1}
+    ports:
+      - '8080:8080'
+    volumes:
+      - ../../bench-results/v2:/app/bench-results/v2
+    networks:
+      - bench
+
+networks:
+  bench:
+    driver: bridge
