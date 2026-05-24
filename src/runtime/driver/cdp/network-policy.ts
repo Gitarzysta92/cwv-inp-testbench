@@ -26,6 +26,12 @@ export function applyNetworkPolicy(
   cdp: CdpConnection,
   policy: ResolvedNetworkPolicy,
 ): NetworkPolicyHandle {
+  if (!policy.mockApi) {
+    return {
+      detach: () => {},
+    };
+  }
+
   const onFetchPaused = async (params: Record<string, unknown>): Promise<void> => {
     try {
       const requestId = params['requestId'] as string;

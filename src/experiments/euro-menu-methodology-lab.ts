@@ -8,7 +8,6 @@ const profileBase = {
   network: {
     kind: 'live' as const,
     baseUrl: EURO_APP_URL,
-    blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
   },
 };
 
@@ -47,6 +46,19 @@ export const euroMenuMethodologyProfiles: Profile[] = [
       ...profileBase.network,
       browserCache: 'disabled',
       runtimeNetworkCache: 'disabled',
+    },
+  }),
+  euroLiveProfile({
+    ...profileBase,
+    id: 'euro-menu-external-scripts-blocked-warm',
+    label: 'Euro menu - external scripts blocked with warmed cache',
+    role: 'measurement',
+    warmup: 'warm_assets',
+    network: {
+      ...profileBase.network,
+      blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
+      browserCache: 'default',
+      runtimeNetworkCache: 'default',
     },
   }),
 ];

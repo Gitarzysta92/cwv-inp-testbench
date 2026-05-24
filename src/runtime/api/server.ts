@@ -3,6 +3,7 @@ import * as http from 'http';
 import { beginBrowserSession } from '../driver/cdp/browser-session';
 import { waitForBrowserAppliance } from '../driver/wait-for-browser';
 import { prepareRuntimeContext } from '../prepare-context';
+import type { ObservationNetworkStats } from '../../lab/types';
 import type {
   ApiErrorResponse,
   BrowserStatusResponse,
@@ -19,7 +20,7 @@ const browserCdpUrl = () => process.env['BROWSER_CDP_URL']?.trim();
 const hostBrowserCdpUrl = () => process.env['HOST_BROWSER_CDP_URL']?.trim();
 
 type ActiveStep = {
-  release: () => Promise<void>;
+  release: () => Promise<ObservationNetworkStats>;
 };
 
 const activeSteps = new Map<string, ActiveStep>();
@@ -276,12 +277,13 @@ async function handleReleaseStep(req: http.IncomingMessage, res: http.ServerResp
   }
 
   activeSteps.delete(releaseInput.stepKey);
-  await active.release();
+  const network = await active.release();
 
   const body: ReleaseStepResponse = {
     schema: RUNTIME_API_SCHEMA,
     stepKey: releaseInput.stepKey,
     released: true,
+    network,
   };
   sendJson(res, 200, body);
 }

@@ -1,4 +1,4 @@
-import type { Profile } from '../../lab/types';
+import type { ObservationNetworkStats, Profile } from '../../lab/types';
 import type { WarmupResult } from '../driver/cdp/warmup';
 import type { RuntimeContext } from '../types';
 
@@ -51,6 +51,7 @@ export type ReleaseStepResponse = {
   schema: typeof RUNTIME_API_SCHEMA;
   stepKey: string;
   released: boolean;
+  network?: ObservationNetworkStats;
 };
 
 export type ApiErrorResponse = {

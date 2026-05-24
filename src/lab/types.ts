@@ -106,6 +106,32 @@ export type SessionStep = ExecutionStep & {
 
 export type ObservationStatus = 'ok' | 'missing_metric' | 'failed' | 'not_implemented';
 
+export type ObservationNetworkStats = {
+  runtimeCache: {
+    enabled: boolean;
+    mode: 'replay' | 'disabled' | 'unavailable';
+    reason?: string;
+    capture: {
+      seen: number;
+      stored: number;
+      skipped: number;
+      bodyReadFailed: number;
+      cacheEntries: number;
+    };
+    replay: {
+      totalPaused: number;
+      servedFromCache: number;
+      blockedCacheMisses: number;
+      continuedToNetwork: number;
+      fulfillFailures: number;
+      allHandledLocally: boolean;
+      allServedFromCache: boolean;
+    };
+    cacheMisses: string[];
+    fulfillFailureMessages?: string[];
+  };
+};
+
 export type Observation = {
   schema: 'cwv-bench-observation/1';
   sessionId: string;
@@ -126,6 +152,7 @@ export type Observation = {
     primaryMetric: string;
     inpSource?: string;
     error?: string;
+    network?: ObservationNetworkStats;
   };
   timestamp: string;
 };

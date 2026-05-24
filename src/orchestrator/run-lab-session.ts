@@ -3,7 +3,13 @@ import { createLabResultsService, validateLab } from '../lab';
 import { reportStoragePaths } from '../lab/report';
 import { prepareRuntimeContext } from '../runtime';
 import { resolveBrowserConnect } from '../clients';
-import type { ClientId, LabDefinition, LabReport, Observation } from '../lab/types';
+import type {
+  ClientId,
+  LabDefinition,
+  LabReport,
+  Observation,
+  ObservationNetworkStats,
+} from '../lab/types';
 import type { RuntimeContext } from '../runtime/types';
 import { getBenchClient } from '../clients/registry';
 import { RuntimeApiClient } from './runtime-api-client';
@@ -35,6 +41,42 @@ export type RuntimeApiLease = {
   description?: string;
   close: () => Promise<void>;
 };
+
+function addNetworkStats(observation: Observation, network: ObservationNetworkStats | undefined): void {
+  if (!network) {
+    return;
+  }
+
+  observation.meta.network = network;
+  const runtimeCache = network.runtimeCache;
+  Object.assign(observation.metrics, {
+    runtimeCacheEnabled: runtimeCache.enabled ? 1 : 0,
+    runtimeCacheCaptureSeen: runtimeCache.capture.seen,
+    runtimeCacheCaptureStored: runtimeCache.capture.stored,
+    runtimeCacheCaptureSkipped: runtimeCache.capture.skipped,
+    runtimeCacheCaptureBodyReadFailed: runtimeCache.capture.bodyReadFailed,
+    runtimeCacheCaptureEntries: runtimeCache.capture.cacheEntries,
+    runtimeCacheReplayTotalPaused: runtimeCache.replay.totalPaused,
+    runtimeCacheReplayServedFromCache: runtimeCache.replay.servedFromCache,
+    runtimeCacheReplayBlockedCacheMisses: runtimeCache.replay.blockedCacheMisses,
+    runtimeCacheReplayContinuedToNetwork: runtimeCache.replay.continuedToNetwork,
+    runtimeCacheReplayFulfillFailures: runtimeCache.replay.fulfillFailures,
+    runtimeCacheReplayAllHandledLocally: runtimeCache.replay.allHandledLocally ? 1 : 0,
+    runtimeCacheReplayAllServedFromCache: runtimeCache.replay.allServedFromCache ? 1 : 0,
+  });
+
+  if (
+    runtimeCache.enabled &&
+    !runtimeCache.replay.allHandledLocally &&
+    observation.meta.status === 'ok'
+  ) {
+    observation.meta.status = 'failed';
+    observation.meta.error =
+      `runtime cache replay leaked or failed requests: ` +
+      `continued=${runtimeCache.replay.continuedToNetwork}, ` +
+      `fulfillFailures=${runtimeCache.replay.fulfillFailures}`;
+  }
+}
 
 export async function runLabSession(options: RunLabSessionOptions): Promise<RunLabSessionResult> {
   const { definition, repoRoot } = options;
@@ -73,6 +115,8 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
 
     let runtime: RuntimeContext;
     let runtimeLease: RuntimeApiLease | undefined;
+    let observation: Observation | undefined;
+    let network: ObservationNetworkStats | undefined;
     const stepKey = `${sessionId}-${instruction.instructionIndex}`;
 
     try {
@@ -121,7 +165,7 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
           `${stepRuntimeApi ? 'runtime-api ' : ''}runtime=${runtime.runtimeEnvironmentId} setup=${instruction.runtime.kind}:${instruction.runtime.isolationKey} ━━━\n`,
       );
 
-      const observation = await getBenchClient(instruction.clientId).runScenario({
+      observation = await getBenchClient(instruction.clientId).runScenario({
         definition,
         step: instruction,
         runtime,
@@ -129,23 +173,28 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
         observationsDir,
         repoRoot,
       });
+    } finally {
+      const stepRuntimeApi = runtimeLease?.client ?? runtimeApi;
+      if (stepRuntimeApi) {
+        const release = await stepRuntimeApi.releaseStep({ stepKey }).catch((err) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`release failed for instruction ${instruction.instructionIndex}: ${message}`);
+          return undefined;
+        });
+        network = release?.network;
+      }
+      if (runtimeLease) {
+        await runtimeLease.close();
+      }
+    }
 
+    if (observation) {
+      addNetworkStats(observation, network);
       results.writeRawObservation(observationsDir, observation);
       observations.push(observation);
 
       if (observation.meta.status === 'failed') {
         failures += 1;
-      }
-    } finally {
-      const stepRuntimeApi = runtimeLease?.client ?? runtimeApi;
-      if (stepRuntimeApi) {
-        await stepRuntimeApi.releaseStep({ stepKey }).catch((err) => {
-          const message = err instanceof Error ? err.message : String(err);
-          console.error(`release failed for instruction ${instruction.instructionIndex}: ${message}`);
-        });
-      }
-      if (runtimeLease) {
-        await runtimeLease.close();
       }
     }
   }

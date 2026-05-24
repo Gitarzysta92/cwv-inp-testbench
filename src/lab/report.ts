@@ -9,6 +9,19 @@ export const OBSERVATION_METRICS = [
   'eventTimingMaxMs',
   'wallClockMs',
   'searchTypingWallMs',
+  'runtimeCacheEnabled',
+  'runtimeCacheCaptureSeen',
+  'runtimeCacheCaptureStored',
+  'runtimeCacheCaptureSkipped',
+  'runtimeCacheCaptureBodyReadFailed',
+  'runtimeCacheCaptureEntries',
+  'runtimeCacheReplayTotalPaused',
+  'runtimeCacheReplayServedFromCache',
+  'runtimeCacheReplayBlockedCacheMisses',
+  'runtimeCacheReplayContinuedToNetwork',
+  'runtimeCacheReplayFulfillFailures',
+  'runtimeCacheReplayAllHandledLocally',
+  'runtimeCacheReplayAllServedFromCache',
 ] as const;
 
 export type ObservationMetric = (typeof OBSERVATION_METRICS)[number];

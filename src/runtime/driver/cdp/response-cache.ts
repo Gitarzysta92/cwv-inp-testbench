@@ -37,6 +37,7 @@ export type ResponseCacheReplay = {
     fulfillFailed: number;
   };
   misses: string[];
+  fulfillFailureMessages: string[];
   detach: () => Promise<void>;
 };
 
@@ -90,6 +91,19 @@ function shouldStoreResponse(meta: RequestMeta, maxBodyBytes: number): boolean {
     return false;
   }
   return meta.url.startsWith('http://') || meta.url.startsWith('https://');
+}
+
+function replayHeaders(cached: CachedResponse): Array<{ name: string; value: string }> {
+  const contentType = cached.responseHeaders.find(
+    (header) => header.name.toLowerCase() === 'content-type' && header.value.trim(),
+  );
+  if (contentType) {
+    return [contentType];
+  }
+  if (cached.mimeType) {
+    return [{ name: 'Content-Type', value: cached.mimeType }];
+  }
+  return [];
 }
 
 type RequestMeta = {
@@ -243,6 +257,7 @@ export async function enableResponseCacheReplay(
     fulfillFailed: 0,
   };
   const misses: string[] = [];
+  const fulfillFailureMessages: string[] = [];
 
   const onFetchPaused = async (params: Record<string, unknown>): Promise<void> => {
     const requestId = params['requestId'] as string;
@@ -258,7 +273,7 @@ export async function enableResponseCacheReplay(
           requestId,
           responseCode: cached.status,
           ...(cached.statusText ? { responsePhrase: cached.statusText } : {}),
-          responseHeaders: cached.responseHeaders,
+          responseHeaders: replayHeaders(cached),
           body: cached.body,
         });
         stats.served += 1;
@@ -271,8 +286,11 @@ export async function enableResponseCacheReplay(
         requestId,
         errorReason: 'BlockedByClient',
       });
-    } catch {
+    } catch (err) {
       stats.fulfillFailed += 1;
+      if (fulfillFailureMessages.length < 20) {
+        fulfillFailureMessages.push(err instanceof Error ? err.message : String(err));
+      }
       await cdp
         .send('Fetch.failRequest', {
           requestId,
@@ -291,6 +309,7 @@ export async function enableResponseCacheReplay(
   return {
     stats,
     misses,
+    fulfillFailureMessages,
     detach: async () => {
       cdp.off('Fetch.requestPaused', onFetchPaused);
       await cdp.send('Fetch.disable').catch(() => {});
