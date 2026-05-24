@@ -91,6 +91,20 @@ function validatePrepareStepRequest(input: unknown): string | undefined {
   if (network['blockScripts'] !== undefined && !isStringArray(network['blockScripts'])) {
     return 'profile.network.blockScripts must be a string array when provided';
   }
+  if (
+    network['browserCache'] !== undefined &&
+    network['browserCache'] !== 'default' &&
+    network['browserCache'] !== 'disabled'
+  ) {
+    return 'profile.network.browserCache must be default or disabled when provided';
+  }
+  if (
+    network['runtimeNetworkCache'] !== undefined &&
+    network['runtimeNetworkCache'] !== 'default' &&
+    network['runtimeNetworkCache'] !== 'disabled'
+  ) {
+    return 'profile.network.runtimeNetworkCache must be default or disabled when provided';
+  }
 
   const application = profile['application'];
   if (!isRecord(application) || !isNonEmptyString(application['apiMode'])) {

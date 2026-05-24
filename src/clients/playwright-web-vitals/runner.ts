@@ -34,7 +34,7 @@ export class PlaywrightRunner {
       BENCH_CONFIG_LABEL:
         input.definition.profiles.find((p) => p.id === input.step.profileId)?.label ??
         input.step.profileId,
-      BENCH_RUN_INDEX: String(input.step.replicate),
+      BENCH_RUN_INDEX: String(input.step.runReplay),
       BENCH_INVOCATION_ID: invocationId,
       BENCH_SCENARIO_ID: input.step.scenarioId,
     };
@@ -58,7 +58,7 @@ export class PlaywrightRunner {
 
     const artifactPath = path.join(
       legacyRawDir,
-      `${input.step.profileId}-run${input.step.replicate}-${invocationId}.json`,
+      `${input.step.profileId}-run${input.step.runReplay}-${invocationId}.json`,
     );
 
     return {

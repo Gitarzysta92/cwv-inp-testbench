@@ -18,6 +18,8 @@ export function prepareRuntimeContext(
     BENCH_WARMUP: profile.warmup,
     BENCH_NETWORK_KIND: network.kind,
     BENCH_API_MODE: profile.application.apiMode,
+    BENCH_BROWSER_CACHE: profile.network.browserCache ?? 'default',
+    BENCH_RUNTIME_NETWORK_CACHE: profile.network.runtimeNetworkCache ?? 'default',
     ...networkPolicyEnv(profile),
   };
 

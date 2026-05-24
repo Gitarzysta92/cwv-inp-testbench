@@ -53,6 +53,9 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
 
     await applyDeviceProfile(cdp, options.profile);
     await enableNetworkPolicy(cdp, options.policy);
+    if (options.profile.network.browserCache === 'disabled') {
+      await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+    }
     policyHandle = applyNetworkPolicy(cdp, options.policy);
 
     await prepareWarmup(cdp, options.profile.warmup, options.appBaseUrl);

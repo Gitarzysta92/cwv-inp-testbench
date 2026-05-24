@@ -1,4 +1,4 @@
-/** How profile × replicate runs are ordered in one cohort session. */
+/** How repeated orchestrator instructions are ordered in one cohort session. */
 export type BenchSchedule = 'sequential' | 'interleave';
 
 export type Cohort = {
@@ -42,6 +42,10 @@ export type RuntimeProfileSlice = {
     proxyUrl?: string;
     /** Script URL path patterns aborted in the browser (runtime policy). */
     blockScripts?: string[];
+    /** Disable Chromium HTTP cache for the measured browser session. */
+    browserCache?: 'default' | 'disabled';
+    /** Runtime-managed response replay cache policy. */
+    runtimeNetworkCache?: 'default' | 'disabled';
   };
   warmup: WarmupPolicy;
   application: {
@@ -87,6 +91,9 @@ export type Scenario = {
 
 export type ExecutionStep = {
   profileId: string;
+  /** Orchestrator replay index for this profile/scenario instruction. */
+  runReplay: number;
+  /** Back-compat alias for persisted observation/report naming. */
   replicate: number;
   stepIndex: number;
 };
@@ -107,6 +114,7 @@ export type Observation = {
   profileLabel: string;
   scenarioId: string;
   scenarioLabel: string;
+  runReplay: number;
   replicate: number;
   stepIndex: number;
   sessionStepIndex: number;

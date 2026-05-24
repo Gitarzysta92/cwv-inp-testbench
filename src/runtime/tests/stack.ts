@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, type StdioOptions } from 'child_process';
 import { launch as launchChrome } from 'chrome-launcher';
 import * as net from 'net';
 import * as path from 'path';
@@ -36,9 +36,9 @@ async function waitForHttp(url: string, timeoutMs = 120_000): Promise<void> {
   throw new Error(`HTTP target not ready at ${url} after ${timeoutMs}ms`);
 }
 
-function runDocker(args: string[]): Promise<number> {
+function runDocker(args: string[], options?: { stdio?: StdioOptions }): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawn('docker', args, { cwd: REPO_ROOT, stdio: 'inherit' });
+    const child = spawn('docker', args, { cwd: REPO_ROOT, stdio: options?.stdio ?? 'inherit' });
     child.on('error', reject);
     child.on('close', (code) => resolve(code ?? 1));
   });
@@ -62,24 +62,31 @@ function reserveLocalPort(): Promise<number> {
 }
 
 /** Build and start the runtime container (Chromium + driver API). */
-export async function upDockerStack(): Promise<TestStack> {
+export async function upDockerStack(options?: {
+  containerName?: string;
+  build?: boolean;
+}): Promise<TestStack> {
   const apiPort = Number(process.env['RUNTIME_API_PORT'] ?? (await reserveLocalPort()));
   const cdpPort = Number(process.env['RUNTIME_CDP_PORT'] ?? (await reserveLocalPort()));
   const apiUrl = process.env['RUNTIME_API_URL'] ?? `http://127.0.0.1:${apiPort}`;
   const cdpUrl = process.env['RUNTIME_CDP_URL'] ?? `http://127.0.0.1:${cdpPort}`;
 
-  const buildCode = await runDocker(['build', '-t', IMAGE, '-f', DOCKERFILE, '.']);
-  if (buildCode !== 0) {
-    throw new Error('docker build failed');
+  if (options?.build ?? true) {
+    const buildCode = await runDocker(['build', '-t', IMAGE, '-f', DOCKERFILE, '.']);
+    if (buildCode !== 0) {
+      throw new Error('docker build failed');
+    }
   }
 
-  await runDocker(['rm', '-f', CONTAINER]);
+  const containerName = options?.containerName ?? CONTAINER;
+
+  await runDocker(['rm', '-f', containerName], { stdio: 'ignore' });
 
   const runCode = await runDocker([
     'run',
     '-d',
     '--name',
-    CONTAINER,
+    containerName,
     '--shm-size=2g',
     '-p',
     `127.0.0.1:${apiPort}:8090`,
@@ -103,7 +110,7 @@ export async function upDockerStack(): Promise<TestStack> {
     cdpUrl,
     appUrl: LIVE_APP_URL,
     stop: async () => {
-      await runDocker(['rm', '-f', CONTAINER]);
+      await runDocker(['rm', '-f', containerName], { stdio: 'ignore' });
     },
   };
 }

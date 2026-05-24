@@ -16,7 +16,13 @@ export type RuntimeContext = {
 export type RuntimeProfileView = {
   id: string;
   warmup: WarmupPolicy;
-  network: { kind: string; baseUrl?: string; blockScripts?: string[] };
+  network: {
+    kind: string;
+    baseUrl?: string;
+    blockScripts?: string[];
+    browserCache?: 'default' | 'disabled';
+    runtimeNetworkCache?: 'default' | 'disabled';
+  };
   application: { apiMode: string };
   slowdown?: {
     clickByTestId?: Record<string, number>;

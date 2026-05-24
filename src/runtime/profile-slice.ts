@@ -10,6 +10,8 @@ export function runtimeSlice(profile: Profile) {
       kind: profile.network.kind,
       baseUrl: profile.network.baseUrl,
       blockScripts: profile.network.blockScripts,
+      browserCache: profile.network.browserCache,
+      runtimeNetworkCache: profile.network.runtimeNetworkCache,
     },
     application: { apiMode: profile.application.apiMode },
     slowdown: profile.slowdown,
@@ -28,5 +30,8 @@ export function buildRuntimeEnvironmentId(
   policy: ReturnType<typeof resolveNetworkPolicy>,
 ): string {
   const slow = profile.slowdown ? 'slow' : 'noslow';
-  return `${profile.id}:${profile.warmup}:${profile.application.apiMode}:${slow}:${networkEnvironmentId(network)}:${networkPolicyFingerprint(policy)}`;
+  const browserCache = profile.network.browserCache === 'disabled' ? 'bcache-off' : 'bcache-on';
+  const runtimeCache =
+    profile.network.runtimeNetworkCache === 'disabled' ? 'rtcache-off' : 'rtcache-on';
+  return `${profile.id}:${profile.warmup}:${profile.application.apiMode}:${slow}:${networkEnvironmentId(network)}:${browserCache}:${runtimeCache}:${networkPolicyFingerprint(policy)}`;
 }

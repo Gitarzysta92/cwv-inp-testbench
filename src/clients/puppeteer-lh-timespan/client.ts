@@ -19,6 +19,7 @@ export class PuppeteerLhTimespanClient implements BenchClient {
       profileLabel: profile.label,
       scenarioId: input.step.scenarioId,
       scenarioLabel: scenario.label,
+      runReplay: input.step.runReplay,
       replicate: input.step.replicate,
       stepIndex: input.step.stepIndex,
       sessionStepIndex: input.step.sessionStepIndex,
