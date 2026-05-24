@@ -18,7 +18,7 @@ export class PlaywrightRunner {
     const profile = input.definition.profiles.find((p) => p.id === input.step.profileId)!;
     const spec =
       process.env['BENCH_PLAYWRIGHT_SPEC'] ??
-      'src/scenarios/playwright-web-vitals/scenarios-a-d.spec.ts';
+      'src/scenarios/playwright-web-vitals/google-web-vitals-probe.spec.ts';
     const config =
       process.env['BENCH_PLAYWRIGHT_CONFIG'] ??
       'src/clients/playwright-web-vitals/playwright.config.ts';

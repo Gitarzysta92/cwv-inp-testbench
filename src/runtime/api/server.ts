@@ -220,6 +220,7 @@ async function handlePrepareStep(req: http.IncomingMessage, res: http.ServerResp
     profile: prepareInput.profile,
     appBaseUrl,
   });
+  runtime.env['BENCH_WARMUP_RESULT_JSON'] = JSON.stringify(session.warmup);
   activeSteps.set(prepareInput.stepKey, session);
 
   const body: PrepareStepResponse = {
@@ -230,6 +231,7 @@ async function handlePrepareStep(req: http.IncomingMessage, res: http.ServerResp
       cdpUrl: resolveHostBrowserCdpUrl(),
       appBaseUrl,
       targetId: session.target.id,
+      warmup: session.warmup,
     },
     prepared: true,
   };

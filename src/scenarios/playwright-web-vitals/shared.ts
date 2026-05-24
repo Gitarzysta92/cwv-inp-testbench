@@ -1,29 +1,43 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { expect, test } from '@playwright/test';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 
-type VitalMetric = {
+export type VitalMetric = {
   value: number;
   delta?: number;
   rating?: string;
 };
 
-type BrowserMetricSnapshot = {
+export type BrowserMetricSnapshot = {
   vitals: Record<string, VitalMetric>;
   eventTimingMaxMs: number;
   eventTimingCount: number;
 };
 
-type ScenarioTiming = {
+export type ScenarioTiming = {
   wallClockMs: number;
-  searchTypingWallMs: number;
+  interactionWallMs: number;
+  interactionLabel?: string;
 };
 
-type BenchMetricsAttachment = {
+export type BenchMetricsAttachment = {
   scenarioId: string;
   metrics: Record<string, number>;
   meta?: Record<string, string | number | boolean>;
+};
+
+export type NavigationCacheStats = {
+  requests: number;
+  servedFromCache: number;
+  encodedDataLength: number;
+};
+
+export type WarmupResult = {
+  mode: string;
+  url: string;
+  warmed: boolean;
+  firstNavigation?: NavigationCacheStats;
+  verificationNavigation?: NavigationCacheStats;
 };
 
 const webVitalsPath = path.join(
@@ -31,21 +45,77 @@ const webVitalsPath = path.join(
   'node_modules/web-vitals/dist/web-vitals.iife.js',
 );
 
-function env(name: string, fallback?: string): string {
+export function env(name: string, fallback?: string): string {
   return process.env[name]?.trim() || fallback || '';
 }
 
-function roundMetric(value: number): number {
+export function roundMetric(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function inpProbeDelayMs(): number {
-  const raw = Number(process.env['BENCH_INP_PROBE_DELAY_MS'] ?? 180);
-  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 180;
 }
 
 function maybeMetric(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? roundMetric(value) : undefined;
+}
+
+export function inpProbeDelayMs(): number {
+  const raw = Number(process.env['BENCH_INP_PROBE_DELAY_MS'] ?? 180);
+  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 180;
+}
+
+export function readWarmupResult(): WarmupResult | undefined {
+  const raw = env('BENCH_WARMUP_RESULT_JSON');
+  if (!raw) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw) as WarmupResult;
+  } catch {
+    return undefined;
+  }
+}
+
+function warmupMetricValues(warmup: WarmupResult | undefined): Record<string, number> {
+  if (!warmup) {
+    return {};
+  }
+
+  return {
+    warmupFirstRequests: warmup.firstNavigation?.requests ?? 0,
+    warmupFirstServedFromCache: warmup.firstNavigation?.servedFromCache ?? 0,
+    warmupVerificationRequests: warmup.verificationNavigation?.requests ?? 0,
+    warmupVerificationServedFromCache: warmup.verificationNavigation?.servedFromCache ?? 0,
+    warmupVerificationEncodedDataLength:
+      warmup.verificationNavigation?.encodedDataLength ?? 0,
+  };
+}
+
+export function warmupMetaValues(warmup: WarmupResult | undefined): Record<string, string | number | boolean> {
+  if (!warmup) {
+    return {
+      warmupPresent: false,
+    };
+  }
+
+  return {
+    warmupPresent: true,
+    warmupMode: warmup.mode,
+    warmupWarmed: warmup.warmed,
+    warmupUrl: warmup.url,
+    warmupVerificationRequests: warmup.verificationNavigation?.requests ?? 0,
+    warmupVerificationServedFromCache: warmup.verificationNavigation?.servedFromCache ?? 0,
+  };
+}
+
+export function assertRuntimeCacheWarmup(warmup: WarmupResult | undefined): void {
+  if (warmup?.mode !== 'warm_assets') {
+    return;
+  }
+  const verification = warmup.verificationNavigation;
+  if (!warmup.warmed || !verification || verification.servedFromCache < 1) {
+    throw new Error(
+      `runtime warm_assets did not verify cache usage: ${JSON.stringify(warmup)}`,
+    );
+  }
 }
 
 function artifactPath(): string {
@@ -61,7 +131,7 @@ function artifactPath(): string {
   return path.join(resultsDir, `${configId}-run${runIndex}-${invocationId}.json`);
 }
 
-function writeInvocation(status: string, metrics?: BenchMetricsAttachment): void {
+export function writeInvocation(status: string, metrics?: BenchMetricsAttachment): void {
   const outPath = artifactPath();
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(
@@ -96,7 +166,7 @@ async function pageTargetId(context: BrowserContext, page: Page): Promise<string
   }
 }
 
-async function connectPreparedPage(): Promise<{
+export async function connectPreparedPage(): Promise<{
   browser: Browser;
   page: Page;
   cleanup: () => Promise<void>;
@@ -141,7 +211,7 @@ async function connectPreparedPage(): Promise<{
   throw new Error(`No Playwright page for prepared CDP target ${targetId || '<any>'}`);
 }
 
-async function installWebVitals(page: Page): Promise<void> {
+export async function installWebVitals(page: Page): Promise<void> {
   const webVitalsSource = fs.readFileSync(webVitalsPath, 'utf8');
   await page.addInitScript({
     content: `${webVitalsSource}
@@ -194,59 +264,7 @@ async function installWebVitals(page: Page): Promise<void> {
   });
 }
 
-async function exerciseGoogleInpProbe(page: Page, baseUrl: string): Promise<ScenarioTiming> {
-  const startedAt = Date.now();
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
-  await page.waitForTimeout(500);
-
-  const delayMs = inpProbeDelayMs();
-  await page.evaluate((delay) => {
-    const existing = document.getElementById('bench-inp-probe');
-    existing?.remove();
-
-    const button = document.createElement('button');
-    button.id = 'bench-inp-probe';
-    button.textContent = 'Bench INP probe';
-    button.style.position = 'fixed';
-    button.style.left = '24px';
-    button.style.top = '24px';
-    button.style.zIndex = '2147483647';
-    button.style.padding = '12px 16px';
-    button.style.background = '#111827';
-    button.style.color = '#ffffff';
-    button.style.border = '0';
-    button.style.borderRadius = '6px';
-    button.style.font = '14px sans-serif';
-    button.addEventListener('click', () => {
-      const end = performance.now() + delay;
-      while (performance.now() < end) {
-        // Intentional busy wait for a deterministic lab INP signal.
-      }
-      button.textContent = 'Bench INP probe done';
-    });
-    document.body.appendChild(button);
-  }, delayMs);
-
-  const interactionStartedAt = Date.now();
-  await page.locator('#bench-inp-probe').click({ timeout: 10_000 });
-  await page.waitForFunction(
-    () =>
-      typeof (window as unknown as {
-        __benchWebVitals?: { latest?: Record<string, VitalMetric> };
-      }).__benchWebVitals?.latest?.['INP']?.value === 'number',
-    undefined,
-    { timeout: 5_000 },
-  ).catch(() => {});
-
-  await page.waitForTimeout(500);
-  return {
-    wallClockMs: Date.now() - startedAt,
-    searchTypingWallMs: Date.now() - interactionStartedAt,
-  };
-}
-
-async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnapshot> {
+export async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnapshot> {
   return page.evaluate(() => {
     const state = (window as unknown as {
       __benchWebVitals?: {
@@ -264,16 +282,21 @@ async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnapshot> {
   });
 }
 
-function toBenchMetrics(snapshot: BrowserMetricSnapshot, timing: ScenarioTiming): {
+export function toBenchMetrics(
+  snapshot: BrowserMetricSnapshot,
+  timing: ScenarioTiming,
+  warmup?: WarmupResult,
+): {
   metrics: Record<string, number>;
   inpSource: string;
 } {
   const metrics: Record<string, number> = {
     wallClockMs: roundMetric(timing.wallClockMs),
-    interactionWallMs: roundMetric(timing.searchTypingWallMs),
-    searchTypingWallMs: roundMetric(timing.searchTypingWallMs),
+    interactionWallMs: roundMetric(timing.interactionWallMs),
+    searchTypingWallMs: roundMetric(timing.interactionWallMs),
     eventTimingMaxMs: roundMetric(snapshot.eventTimingMaxMs),
     eventTimingCount: snapshot.eventTimingCount,
+    ...warmupMetricValues(warmup),
   };
 
   const inp = maybeMetric(snapshot.vitals['INP']?.value);
@@ -298,41 +321,3 @@ function toBenchMetrics(snapshot: BrowserMetricSnapshot, timing: ScenarioTiming)
     inpSource: inp !== undefined ? 'web-vitals/onINP' : 'event-timing/fallback',
   };
 }
-
-test('bench scenario', async () => {
-  const scenarioId = env('BENCH_SCENARIO_ID', 'scenario-google-search-typing');
-  const baseUrl = env('PLAYWRIGHT_BASE_URL', 'https://www.google.com');
-  const attached = await connectPreparedPage();
-
-  try {
-    await installWebVitals(attached.page);
-    const timing = await exerciseGoogleInpProbe(attached.page, baseUrl);
-    const snapshot = await readBrowserMetrics(attached.page);
-    const { metrics, inpSource } = toBenchMetrics(snapshot, timing);
-
-    writeInvocation('passed', {
-      scenarioId,
-      metrics,
-      meta: {
-        inpSource,
-        browserConnectMode: env('BENCH_BROWSER_CONNECT_MODE', 'launch'),
-        appBaseUrl: baseUrl,
-        interactionProbeDelayMs: inpProbeDelayMs(),
-      },
-    });
-
-    expect(metrics['inpMs']).toBeGreaterThanOrEqual(0);
-    expect(metrics['wallClockMs']).toBeGreaterThan(0);
-  } catch (err) {
-    writeInvocation('failed', {
-      scenarioId,
-      metrics: {},
-      meta: {
-        error: err instanceof Error ? err.message : String(err),
-      },
-    });
-    throw err;
-  } finally {
-    await attached.cleanup().catch(() => {});
-  }
-});

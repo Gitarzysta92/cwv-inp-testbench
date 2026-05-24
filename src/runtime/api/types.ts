@@ -1,4 +1,5 @@
 import type { Profile } from '../../lab/types';
+import type { WarmupResult } from '../driver/cdp/warmup';
 import type { RuntimeContext } from '../types';
 
 export const RUNTIME_API_SCHEMA = 'cwv-runtime-api/1';
@@ -36,6 +37,8 @@ export type PrepareStepResponse = {
     appBaseUrl: string;
     /** Page target id — clients should attach to this tab over CDP. */
     targetId: string;
+    /** Runtime-owned browser warmup verification for this prepared step. */
+    warmup: WarmupResult;
   };
   prepared: true;
 };

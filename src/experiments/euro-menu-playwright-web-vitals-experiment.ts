@@ -1,25 +1,22 @@
 #!/usr/bin/env node
 /**
- * Google runtime experiment using the playwright-web-vitals client.
+ * Euro.com.pl menu-open experiment using the playwright-web-vitals client.
  *
- *   npx tsx src/experiments/google-playwright-web-vitals-experiment.ts --local
- *   npx tsx src/experiments/google-playwright-web-vitals-experiment.ts --docker
+ *   npx tsx src/experiments/euro-menu-playwright-web-vitals-experiment.ts --local
+ *   npx tsx src/experiments/euro-menu-playwright-web-vitals-experiment.ts --docker
  *
- * Flow:
- * 1. Start a runtime browser stack.
- * 2. Let the orchestrator prepare one live Google step through the runtime API.
- * 3. Run the playwright-web-vitals client against the prepared CDP target.
- * 4. Print the normalized observation and report paths.
+ * Runtime owns the warm_assets pass and exports BENCH_WARMUP_RESULT_JSON.
+ * The scenario refuses to measure if runtime did not verify cache hits during warmup.
  */
 import * as path from 'path';
 import type { LabDefinition, Observation } from '../lab/types';
 import { runLabSession } from '../orchestrator/run-lab-session';
 import { upDockerStack, upLocalStack } from '../runtime/tests/stack';
-import { GOOGLE_APP_URL, googleLiveProfile } from './google-offline-replay-fixtures';
+import { EURO_APP_URL, euroLiveProfile } from './euro-offline-replay-fixtures';
 
-const SCENARIO_ID = 'scenario-google-web-vitals-probe';
-const PROFILE_ID = 'live-google-web-vitals';
-const SPEC_PATH = 'src/scenarios/playwright-web-vitals/google-web-vitals-probe.spec.ts';
+const SCENARIO_ID = 'scenario-euro-open-menu';
+const PROFILE_ID = 'live-euro-menu-web-vitals';
+const SPEC_PATH = 'src/scenarios/playwright-web-vitals/euro-open-menu.spec.ts';
 
 function readReplicates(): number {
   const raw = Number(process.env['BENCH_REPLICATES'] ?? 1);
@@ -47,18 +44,20 @@ function experimentDefinition(): LabDefinition {
       client: 'playwright-web-vitals',
     },
     profiles: [
-      googleLiveProfile({
+      euroLiveProfile({
         id: PROFILE_ID,
-        label: 'Live Google with playwright-web-vitals',
+        label: 'Live Euro menu with warmed browser cache',
+        warmup: 'warm_assets',
       }),
     ],
     scenarios: [
       {
         id: SCENARIO_ID,
-        label: 'Google web-vitals probe interaction',
+        label: 'Euro open main menu',
         description: [
-          'Open Google homepage',
-          'Inject and click a deterministic INP probe',
+          'Runtime warms Euro homepage assets',
+          'Verify warmed browser cache before measurement',
+          'Open the main menu',
           'Measure INP through web-vitals/onINP',
         ],
       },
@@ -79,11 +78,12 @@ async function main(): Promise<void> {
   const repoRoot = path.resolve(process.cwd());
   const definition = experimentDefinition();
 
-  console.error('\nGoogle playwright-web-vitals experiment');
-  console.error(`  app:        ${GOOGLE_APP_URL}`);
+  console.error('\nEuro menu playwright-web-vitals experiment');
+  console.error(`  app:        ${EURO_APP_URL}`);
   console.error(`  client:     ${definition.lab.client}`);
   console.error(`  scenario:   ${SCENARIO_ID}`);
   console.error(`  spec:       ${SPEC_PATH}`);
+  console.error(`  warmup:     warm_assets`);
   console.error(`  replicates: ${definition.lab.methodology.replicates}\n`);
 
   let stack: Awaited<ReturnType<typeof upDockerStack>> | undefined;
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
     stack = await upDockerStack();
   } else if (useLocal) {
     console.error('Starting local runtime stack...\n');
-    stack = await upLocalStack({ appUrl: GOOGLE_APP_URL });
+    stack = await upLocalStack({ appUrl: EURO_APP_URL });
   } else {
     throw new Error('Pass --docker or --local so the experiment can prepare a runtime browser.');
   }
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
     }
 
     if (result.failures > 0) {
-      throw new Error(`${result.failures} playwright-web-vitals observation(s) failed`);
+      throw new Error(`${result.failures} Euro menu observation(s) failed`);
     }
   } finally {
     console.error('\nStopping stack...');

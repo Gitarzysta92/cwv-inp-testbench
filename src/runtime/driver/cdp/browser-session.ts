@@ -9,7 +9,7 @@ import {
   enableNetworkPolicy,
   type NetworkPolicyHandle,
 } from './network-policy';
-import { prepareWarmup, warmupNavigation } from './warmup';
+import { prepareWarmup, warmupNavigation, type WarmupResult } from './warmup';
 
 export type BrowserSessionOptions = {
   cdpUrl: string;
@@ -20,6 +20,7 @@ export type BrowserSessionOptions = {
 
 export type BrowserSession = {
   target: CdpTarget;
+  warmup: WarmupResult;
   release: () => Promise<void>;
 };
 
@@ -55,13 +56,14 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
     policyHandle = applyNetworkPolicy(cdp, options.policy);
 
     await prepareWarmup(cdp, options.profile.warmup, options.appBaseUrl);
-    await warmupNavigation(cdp, {
+    const warmup = await warmupNavigation(cdp, {
       mode: options.profile.warmup,
       appBaseUrl: options.appBaseUrl,
     });
 
     return {
       target,
+      warmup,
       release,
     };
   } catch (err) {
