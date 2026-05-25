@@ -15,6 +15,8 @@ const orchestrated = process.env['BENCH_ORCHESTRATED'] === '1';
 
 const viewportWidth = Number(process.env['BENCH_VIEWPORT_WIDTH'] ?? '1280');
 const viewportHeight = Number(process.env['BENCH_VIEWPORT_HEIGHT'] ?? '720');
+const locale = process.env['BENCH_LOCALE'] ?? 'en-US';
+const timezoneId = process.env['BENCH_TIMEZONE_ID'] ?? 'UTC';
 const headed = process.env['BENCH_HEADED'] === '1';
 
 /**
@@ -39,8 +41,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'off',
     viewport: { width: viewportWidth, height: viewportHeight },
-    locale: 'en-US',
-    timezoneId: 'UTC',
+    locale,
+    timezoneId,
     deviceScaleFactor: 1,
     headless: !headed,
     actionTimeout: 15_000,

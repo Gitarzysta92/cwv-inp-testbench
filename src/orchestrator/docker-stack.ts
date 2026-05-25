@@ -17,9 +17,9 @@ export type DockerRuntimeOptions = {
   driverPort?: number;
 };
 
-const DEFAULT_COMPOSE = 'docker/compose.yaml';
-const DEFAULT_APP_PORT = 4200;
+const DEFAULT_COMPOSE = 'src/runtime/docker/compose.yaml';
 const DEFAULT_DRIVER_PORT = 8090;
+const DEFAULT_LIVE_APP_URL = 'https://www.google.com';
 
 export function needsRuntimeContainer(definition: LabDefinition): boolean {
   return definition.profiles.some(
@@ -65,7 +65,6 @@ export async function upDockerRuntime(
     return undefined;
   }
 
-  const appPort = options.appPort ?? DEFAULT_APP_PORT;
   const driverPort = options.driverPort ?? DEFAULT_DRIVER_PORT;
 
   const args = ['up', '-d'];
@@ -79,11 +78,11 @@ export async function upDockerRuntime(
     throw new Error(`docker compose up runtime failed with exit code ${code}`);
   }
 
-  const runtimeBaseUrl = `http://127.0.0.1:${appPort}`;
+  const runtimeBaseUrl = process.env['BROWSER_APP_BASE_URL'] ?? DEFAULT_LIVE_APP_URL;
   const runtimeApiUrl = `http://127.0.0.1:${driverPort}`;
 
-  await waitForHttp(runtimeBaseUrl);
   await waitForHttp(`${runtimeApiUrl}/health`);
+  await waitForHttp(`http://127.0.0.1:9222/json/version`);
 
   return { runtimeBaseUrl, runtimeApiUrl };
 }

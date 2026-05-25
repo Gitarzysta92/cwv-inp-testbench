@@ -87,6 +87,8 @@ export type Scenario = {
   id: string;
   label: string;
   description: string[];
+  /** Optional client-specific Playwright spec path for this scenario. */
+  specPath?: string;
 };
 
 export type ExecutionStep = {

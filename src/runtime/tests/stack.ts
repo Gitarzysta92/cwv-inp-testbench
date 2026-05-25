@@ -65,6 +65,7 @@ function reserveLocalPort(): Promise<number> {
 export async function upDockerStack(options?: {
   containerName?: string;
   build?: boolean;
+  env?: Record<string, string>;
 }): Promise<TestStack> {
   const apiPort = Number(process.env['RUNTIME_API_PORT'] ?? (await reserveLocalPort()));
   const cdpPort = Number(process.env['RUNTIME_CDP_PORT'] ?? (await reserveLocalPort()));
@@ -79,6 +80,10 @@ export async function upDockerStack(options?: {
   }
 
   const containerName = options?.containerName ?? CONTAINER;
+  const extraEnv = Object.entries(options?.env ?? {}).flatMap(([name, value]) => [
+    '-e',
+    `${name}=${value}`,
+  ]);
 
   await runDocker(['rm', '-f', containerName], { stdio: 'ignore' });
 
@@ -96,6 +101,7 @@ export async function upDockerStack(options?: {
     `BROWSER_CDP_PUBLIC_PORT=${CONTAINER_CDP_PUBLIC_PORT}`,
     '-e',
     `HOST_BROWSER_CDP_URL=${cdpUrl}`,
+    ...extraEnv,
     IMAGE,
   ]);
   if (runCode !== 0) {

@@ -20,6 +20,8 @@ export function prepareClientEnv(profile: Profile): Record<string, string> {
   const env: Record<string, string> = {
     BENCH_VIEWPORT_WIDTH: String(profile.device.width),
     BENCH_VIEWPORT_HEIGHT: String(profile.device.height),
+    BENCH_LOCALE: profile.system.locale,
+    BENCH_TIMEZONE_ID: profile.system.timezoneId,
     BENCH_BROWSER_CONNECT_MODE: browser.mode,
   };
 

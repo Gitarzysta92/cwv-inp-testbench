@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Euro.com.pl menu experiment using orchestrator scheduling.
+ * Euro.com.pl menu/listing experiment using orchestrator scheduling.
  *
  * The orchestrator expands profiles x scenarios x runReplay into flat
  * instructions, then starts a fresh runtime Docker container for each one.
@@ -13,11 +13,7 @@ import { runLabSession, type RuntimeApiLease } from '../orchestrator/run-lab-ses
 import type { OrchestratorRunInstruction } from '../orchestrator/scheduler';
 import { RuntimeApiClient } from '../orchestrator/runtime-api-client';
 import { upDockerStack } from '../runtime/tests/stack';
-import {
-  EURO_MENU_SCENARIO_ID,
-  EURO_MENU_SPEC_PATH,
-  euroMenuMethodologyLab,
-} from './euro-menu-methodology-lab';
+import { euroMenuMethodologyLab } from './euro-menu-methodology-lab';
 
 function readReplicates(): number {
   const raw = Number(process.env['BENCH_REPLICATES'] ?? euroMenuMethodologyLab.lab.methodology.replicates);
@@ -53,14 +49,32 @@ function describeObservation(observation: Observation): string {
 }
 
 async function startRuntimeForInstruction(input: {
+  definition: LabDefinition;
   sessionId: string;
   instruction: OrchestratorRunInstruction;
   buildImage: boolean;
 }): Promise<RuntimeApiLease> {
   const containerName = `cwv-runtime-${input.sessionId.slice(0, 8)}-${input.instruction.instructionIndex}`;
+  const profile = input.definition.profiles.find(
+    (candidate) => candidate.id === input.instruction.profileId,
+  );
+  if (!profile) {
+    throw new Error(`unknown profile "${input.instruction.profileId}"`);
+  }
+
+  const runtimeEnv: Record<string, string> = profile.browser.headless
+    ? {}
+    : {
+        BENCH_USE_XVFB: '1',
+        BROWSER_HEADLESS: '0',
+        XVFB_WIDTH: String(profile.device.width),
+        XVFB_HEIGHT: String(profile.device.height),
+      };
+
   const stack = await upDockerStack({
     containerName,
     build: input.buildImage,
+    env: runtimeEnv,
   });
 
   return {
@@ -78,11 +92,13 @@ async function main(): Promise<void> {
     labDefinition.scenarios.length *
     labDefinition.lab.methodology.replicates;
 
-  process.env['BENCH_PLAYWRIGHT_SPEC'] = EURO_MENU_SPEC_PATH;
-
-  console.error('\nEuro menu isolated orchestrator experiment');
-  console.error(`  scenario:   ${EURO_MENU_SCENARIO_ID}`);
-  console.error(`  spec:       ${EURO_MENU_SPEC_PATH}`);
+  console.error('\nEuro menu/listing isolated orchestrator experiment');
+  console.error(`  scenarios:  ${labDefinition.scenarios.map((scenario) => scenario.id).join(', ')}`);
+  console.error(
+    `  specs:      ${labDefinition.scenarios
+      .map((scenario) => `${scenario.id}=${scenario.specPath ?? '<default>'}`)
+      .join(', ')}`,
+  );
   console.error(`  profiles:   ${labDefinition.profiles.map((profile) => profile.id).join(', ')}`);
   console.error(`  runReplay:  ${labDefinition.lab.methodology.replicates}`);
   console.error(`  schedule:   ${labDefinition.lab.methodology.schedule}`);
@@ -95,6 +111,7 @@ async function main(): Promise<void> {
     repoRoot,
     runtimeApiFactory: async ({ sessionId, instruction }) => {
       const lease = await startRuntimeForInstruction({
+        definition: labDefinition,
         sessionId,
         instruction,
         buildImage: !imageBuilt,

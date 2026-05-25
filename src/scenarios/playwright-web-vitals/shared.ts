@@ -182,8 +182,8 @@ export async function connectPreparedPage(): Promise<{
         width: Number(env('BENCH_VIEWPORT_WIDTH', '1280')),
         height: Number(env('BENCH_VIEWPORT_HEIGHT', '720')),
       },
-      locale: 'en-US',
-      timezoneId: 'UTC',
+      locale: env('BENCH_LOCALE', 'en-US'),
+      timezoneId: env('BENCH_TIMEZONE_ID', 'UTC'),
     });
     return { browser, page, cleanup: () => browser.close() };
   }

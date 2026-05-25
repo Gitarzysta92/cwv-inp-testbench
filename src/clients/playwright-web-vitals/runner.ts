@@ -16,7 +16,9 @@ export class PlaywrightRunner {
     fs.mkdirSync(legacyRawDir, { recursive: true });
 
     const profile = input.definition.profiles.find((p) => p.id === input.step.profileId)!;
+    const scenario = input.definition.scenarios.find((s) => s.id === input.step.scenarioId);
     const spec =
+      scenario?.specPath ??
       process.env['BENCH_PLAYWRIGHT_SPEC'] ??
       'src/scenarios/playwright-web-vitals/google-web-vitals-probe.spec.ts';
     const config =
