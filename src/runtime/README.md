@@ -2,7 +2,7 @@
 
 Runtime is the **browser measurement environment**: it prepares everything the browser needs for a lab step from the profile’s runtime slice, then exposes that environment to clients.
 
-Runtime **serves and drives the browser** — app target, network policy, warmup/slowdown, and CDP-applied browser state — using config from `src/config.ts`. Clients **attach** to a prepared browser and **run scenarios** (measurement scripts only). The orchestrator schedules steps; it does not set up the browser.
+Runtime **serves and drives the browser** — app target, network policy, warmup/slowdown, and CDP-applied browser state — using a lab definition (see `src/config.example.ts` for a template; Euro runs use `src/experiments/euro-menu-methodology-lab.ts`). Clients **attach** to a prepared browser and **run scenarios** (measurement scripts only). The orchestrator schedules steps; it does not set up the browser.
 
 ```
 profile (runtime slice)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as path from 'path';
-import { labDefinition } from '../config';
+import { labDefinition } from '../config.example';
 import { downDockerRuntime, upDockerRuntime } from './docker-stack';
 import { parseOrchestratorOptions } from './options';
 import { runLabSession } from './run-lab-session';

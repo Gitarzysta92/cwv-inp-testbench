@@ -1,4 +1,4 @@
-export { labDefinition, lab, profiles, scenarios } from './config';
+export { labDefinition, lab, profiles, scenarios } from './config.example';
 export * from './lab';
 export * from './runtime';
 export * from './clients';

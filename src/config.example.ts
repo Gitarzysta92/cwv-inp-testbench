@@ -1,17 +1,12 @@
 import type { LabDefinition } from './lab/types';
 
-function readReplicates(): number {
-  const n = Number(process.env['BENCH_REPLICATES'] ?? 5);
-  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 5;
-}
-
 export const lab = {
   cohort: {
-    hostClass: process.env['BENCH_HOST_CLASS'] ?? 'local-headless',
-    appVersion: process.env['GIT_SHA'] ?? 'dev',
+    hostClass: 'local-headless',
+    appVersion: 'dev',
   },
   methodology: {
-    replicates: readReplicates(),
+    replicates: 5,
     schedule: 'interleave' as const,
     metric: 'inpMs',
     percentiles: [50, 75, 95],
@@ -32,7 +27,7 @@ export const profiles = [
     warmup: 'cold' as const,
     network: {
       kind: 'mock-static' as const,
-      baseUrl: process.env['PLAYWRIGHT_BASE_URL'],
+      baseUrl: 'http://localhost:4200',
       blockScripts: ['/assets/scripts/analytics.js'],
     },
     device: {
