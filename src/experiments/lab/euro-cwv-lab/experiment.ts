@@ -21,6 +21,7 @@ export { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './pro
 export type RunEuroExperimentOptions = {
   repoRoot?: string;
   replicates?: number;
+  profileIds?: string[];
   scenarioIds?: string[];
   title?: string;
   runtime?: BenchRuntime;
@@ -46,8 +47,40 @@ function selectScenarios(
   return selected;
 }
 
-export function resolveEuroLabDefinition(options: Pick<RunEuroExperimentOptions, 'replicates' | 'scenarioIds'> = {}): LabDefinition {
+function readProfileIds(): string[] | undefined {
+  const raw = process.env['BENCH_PROFILE_IDS']?.trim();
+  if (!raw) {
+    return undefined;
+  }
+  return raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+function selectProfiles(
+  allProfiles: LabDefinition['profiles'],
+  requestedIds: string[],
+): LabDefinition['profiles'] {
+  const selected = allProfiles.filter((profile) => requestedIds.includes(profile.id));
+  const unknown = requestedIds.filter((id) => !allProfiles.some((profile) => profile.id === id));
+  if (unknown.length > 0) {
+    throw new Error(`unknown profile(s): ${unknown.join(', ')}`);
+  }
+  if (selected.length === 0) {
+    throw new Error('no profiles selected');
+  }
+  return selected;
+}
+
+export function resolveEuroLabDefinition(
+  options: Pick<RunEuroExperimentOptions, 'replicates' | 'profileIds' | 'scenarioIds'> = {},
+): LabDefinition {
   const resolvedReplicates = options.replicates ?? readReplicates(euroMenuMethodologyLab.lab.methodology.replicates);
+  const profileIds = options.profileIds ?? readProfileIds();
+  const profiles = profileIds?.length
+    ? selectProfiles(euroMenuMethodologyLab.profiles, profileIds)
+    : euroMenuMethodologyLab.profiles;
   const scenarios = options.scenarioIds?.length
     ? selectScenarios(euroMenuMethodologyLab.scenarios, options.scenarioIds)
     : euroMenuMethodologyLab.scenarios;
@@ -65,6 +98,7 @@ export function resolveEuroLabDefinition(options: Pick<RunEuroExperimentOptions,
         replicates: resolvedReplicates,
       },
     },
+    profiles,
     scenarios,
   };
 }
@@ -137,6 +171,7 @@ export async function runEuroExperiment(options: RunEuroExperimentOptions = {}):
   const labDefinition = applyRuntimeToLabDefinition(
     resolveEuroLabDefinition({
       replicates: options.replicates,
+      profileIds: options.profileIds,
       scenarioIds: options.scenarioIds,
     }),
     runtime,
