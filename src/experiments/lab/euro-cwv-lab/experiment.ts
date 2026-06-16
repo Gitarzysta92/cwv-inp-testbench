@@ -11,7 +11,8 @@ import type { LabDefinition, Observation } from '../../../lab/types';
 import { runLabSession, type RunLabSessionResult, type RuntimeApiLease } from '../../../orchestrator/run-lab-session';
 import type { OrchestratorRunInstruction } from '../../../orchestrator/scheduler';
 import { RuntimeApiClient } from '../../../orchestrator/runtime-api-client';
-import { upDockerStack } from '../../../runtime/tests/stack';
+import type { BenchRuntime } from '../../../runtime';
+import { dockerHeadfulXvfbRuntime } from '../../../runtime';
 import { euroMenuMethodologyLab } from './definition';
 
 export { euroMenuMethodologyLab, euroMenuMethodologyProfiles } from './definition';
@@ -22,6 +23,7 @@ export type RunEuroExperimentOptions = {
   replicates?: number;
   scenarioIds?: string[];
   title?: string;
+  runtime?: BenchRuntime;
 };
 
 function readReplicates(defaultReplicates: number): number {
@@ -67,6 +69,29 @@ export function resolveEuroLabDefinition(options: Pick<RunEuroExperimentOptions,
   };
 }
 
+function applyRuntimeToLabDefinition(definition: LabDefinition, runtime: BenchRuntime): LabDefinition {
+  return {
+    ...definition,
+    lab: {
+      ...definition.lab,
+      cohort: {
+        ...definition.lab.cohort,
+        hostClass: runtime.hostClass,
+      },
+    },
+    profiles: definition.profiles.map((profile) => {
+      const runtimeProfile = {
+        ...profile,
+        browser: {
+          ...profile.browser,
+          headless: runtime.browserHeadless,
+        },
+      };
+      return runtime.configureProfile?.(runtimeProfile) ?? runtimeProfile;
+    }),
+  };
+}
+
 function describeObservation(observation: Observation): string {
   return [
     observation.meta.status,
@@ -83,8 +108,8 @@ async function startRuntimeForInstruction(input: {
   sessionId: string;
   instruction: OrchestratorRunInstruction;
   buildImage: boolean;
+  runtime: BenchRuntime;
 }): Promise<RuntimeApiLease> {
-  const containerName = `cwv-runtime-${input.sessionId.slice(0, 8)}-${input.instruction.instructionIndex}`;
   const profile = input.definition.profiles.find(
     (candidate) => candidate.id === input.instruction.profileId,
   );
@@ -92,34 +117,30 @@ async function startRuntimeForInstruction(input: {
     throw new Error(`unknown profile "${input.instruction.profileId}"`);
   }
 
-  const runtimeEnv: Record<string, string> = profile.browser.headless
-    ? {}
-    : {
-        BENCH_USE_XVFB: '1',
-        BROWSER_HEADLESS: '0',
-        XVFB_WIDTH: String(profile.device.width),
-        XVFB_HEIGHT: String(profile.device.height),
-      };
-
-  const stack = await upDockerStack({
-    containerName,
-    build: input.buildImage,
-    env: runtimeEnv,
+  const started = await input.runtime.start({
+    profile,
+    sessionId: input.sessionId,
+    instructionIndex: input.instruction.instructionIndex,
+    buildImage: input.buildImage,
   });
 
   return {
-    client: new RuntimeApiClient({ baseUrl: stack.apiUrl }),
-    description: `docker:${containerName}`,
-    close: stack.stop,
+    client: new RuntimeApiClient({ baseUrl: started.apiUrl }),
+    description: started.description,
+    close: started.close,
   };
 }
 
 export async function runEuroExperiment(options: RunEuroExperimentOptions = {}): Promise<RunLabSessionResult> {
   const repoRoot = options.repoRoot ?? path.resolve(process.cwd());
-  const labDefinition = resolveEuroLabDefinition({
-    replicates: options.replicates,
-    scenarioIds: options.scenarioIds,
-  });
+  const runtime = options.runtime ?? dockerHeadfulXvfbRuntime;
+  const labDefinition = applyRuntimeToLabDefinition(
+    resolveEuroLabDefinition({
+      replicates: options.replicates,
+      scenarioIds: options.scenarioIds,
+    }),
+    runtime,
+  );
   const instructionCount =
     labDefinition.profiles.length *
     labDefinition.scenarios.length *
@@ -136,7 +157,7 @@ export async function runEuroExperiment(options: RunEuroExperimentOptions = {}):
   console.error(`  runReplay:  ${labDefinition.lab.methodology.replicates}`);
   console.error(`  schedule:   ${labDefinition.lab.methodology.schedule}`);
   console.error(`  steps:      ${instructionCount}`);
-  console.error('  runtime:    fresh Docker container per instruction\n');
+  console.error(`  runtime:    ${runtime.id} (${runtime.label}); fresh instance per instruction\n`);
 
   let imageBuilt = false;
   const result = await runLabSession({
@@ -148,6 +169,7 @@ export async function runEuroExperiment(options: RunEuroExperimentOptions = {}):
         sessionId,
         instruction,
         buildImage: !imageBuilt,
+        runtime,
       });
       imageBuilt = true;
       return lease;

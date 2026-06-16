@@ -1,6 +1,6 @@
 # Runtime experiments
 
-Validate runtime and CDP behaviour without a lab session: no `LabDefinition`, no scenarios, no percentiles or gate.
+Validate runtime and CDP behaviour, either with focused smoke tests or runtime-scoped lab runs.
 
 ## Files in each experiment
 
@@ -18,6 +18,31 @@ Validate runtime and CDP behaviour without a lab session: no `LabDefinition`, no
 5. Exit non-zero if any check fails.
 
 ## Experiments
+
+### Euro menu runtime comparison
+
+Full Euro hamburger-menu methodology lab on explicit runtime variants:
+
+```bash
+npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:docker-headful-xvfb:no-replay
+npm run bench:runtime:euro:menu:local-headful
+```
+
+Each run uses the same Euro menu profiles and reports, but changes the runtime
+host class:
+
+| Runtime | Folder | Browser |
+| --- | --- | --- |
+| Docker + Xvfb | `src/runtime/docker-headful-xvfb` | headful Chromium in Xvfb |
+| Docker + Xvfb, no replay | `src/runtime/docker-headful-xvfb-no-replay` | headful Chromium in Xvfb, no runtime replay cache |
+| Local headful | `src/runtime/local-headful` | normal headful Chromium outside Docker |
+
+Local headful disables the runtime-managed replay cache so it behaves like a
+normal browser run instead of a CDP replay proxy run.
+
+Use `BENCH_REPLICATES=1` for smoke checks or the default `10` for the current
+methodology run.
 
 ### `euro-offline-replay`
 

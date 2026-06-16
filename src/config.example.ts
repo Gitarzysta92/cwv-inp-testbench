@@ -2,7 +2,7 @@ import type { LabDefinition } from './lab/types';
 
 export const lab = {
   cohort: {
-    hostClass: 'local-headless',
+    hostClass: 'local-headful',
     appVersion: 'dev',
   },
   methodology: {
@@ -43,7 +43,7 @@ export const profiles = [
     browser: {
       engine: 'chromium',
       project: 'Desktop Chrome',
-      headless: true,
+      headless: false,
       freshContextPerRun: true,
     },
     application: {

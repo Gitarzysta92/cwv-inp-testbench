@@ -61,6 +61,22 @@ function reserveLocalPort(): Promise<number> {
   });
 }
 
+async function resolveLocalPort(explicit: number | undefined, envName: string): Promise<number> {
+  if (explicit !== undefined) {
+    return explicit;
+  }
+
+  const raw = process.env[envName];
+  if (raw !== undefined) {
+    const fromEnv = Number(raw);
+    if (Number.isFinite(fromEnv) && fromEnv > 0) {
+      return Math.floor(fromEnv);
+    }
+  }
+
+  return reserveLocalPort();
+}
+
 /** Build and start the runtime container (Chromium + driver API). */
 export async function upDockerStack(options?: {
   containerName?: string;
@@ -126,18 +142,23 @@ export async function upLocalStack(options?: {
   driverPort?: number;
   cdpPort?: number;
   appUrl?: string;
+  headless?: boolean;
+  windowSize?: { width: number; height: number };
 }): Promise<TestStack> {
-  const driverPort = options?.driverPort ?? 8090;
-  const requestedCdpPort = options?.cdpPort ?? 9222;
+  const driverPort = await resolveLocalPort(options?.driverPort, 'RUNTIME_API_PORT');
+  const requestedCdpPort = await resolveLocalPort(options?.cdpPort, 'RUNTIME_CDP_PORT');
   const appUrl = options?.appUrl ?? LIVE_APP_URL;
+  const headless = options?.headless ?? true;
+  const windowSize = options?.windowSize;
 
   const chrome = await launchChrome({
     port: requestedCdpPort,
     chromeFlags: [
-      '--headless=new',
+      ...(headless ? ['--headless=new'] : []),
       '--disable-background-networking',
       '--disable-extensions',
       '--no-first-run',
+      ...(windowSize ? [`--window-size=${windowSize.width},${windowSize.height}`] : []),
     ],
   });
 
