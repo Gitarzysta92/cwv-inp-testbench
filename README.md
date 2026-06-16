@@ -125,7 +125,7 @@ Dla kazdej metryki:
 Raport nie liczy percentyli. Podstawowy model oceny to
 mediana/srednia/min/max/delta po kwalifikacji.
 
-`wallClockMs` to calkowity czas wykonania scenariusza od startu do konca:
+`scenarioDurationMs` to calkowity czas wykonania scenariusza od startu do konca:
 nawigacja, oczekiwanie na load, czyszczenie overlayow, akcja uzytkownika i
 kontrole po akcji. To nie jest samo INP.
 

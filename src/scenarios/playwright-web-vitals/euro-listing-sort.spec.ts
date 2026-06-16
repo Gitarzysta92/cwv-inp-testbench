@@ -46,7 +46,7 @@ async function exerciseListingSort(page: Page, baseUrl: string): Promise<EuroSce
   const state = await readListingState(page);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: `${dropdownLabel}|${optionLabel}`,
     meta: {

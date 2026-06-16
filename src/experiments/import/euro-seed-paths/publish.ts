@@ -110,7 +110,7 @@ export function buildObservation(
     runtimeEnvironmentId: `${row.profileId}:imported-${pathConfig.key}`,
     metrics: {
       inpMs: row.inpMs,
-      wallClockMs: row.wallClockMs,
+      scenarioDurationMs: row.scenarioDurationMs,
       ...(row.auxMs != null ? { interactionWallMs: row.auxMs } : {}),
       networkBlockedByPolicy: network.policy.blockedByPolicy,
       runtimeCacheEnabled: network.runtimeCache.enabled ? 1 : 0,
@@ -210,8 +210,8 @@ export function writePathMarkdown(
   }
 
   const rawHeader = pathConfig.rows.some((r) => r.auxMs != null)
-    ? '| profile | replicate | status | inpMs | wallClockMs | auxMs | replayTotal | replayServed | replayBlocked | continued |'
-    : '| profile | replicate | status | inpMs | wallClockMs | replayTotal | replayServed | replayBlocked | continued |';
+    ? '| profile | replicate | status | inpMs | scenarioDurationMs | auxMs | replayTotal | replayServed | replayBlocked | continued |'
+    : '| profile | replicate | status | inpMs | scenarioDurationMs | replayTotal | replayServed | replayBlocked | continued |';
 
   lines.push('', '## Surowe wyniki', '', rawHeader, pathConfig.rows.some((r) => r.auxMs != null) ? '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |' : '| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |');
 
@@ -223,7 +223,7 @@ export function writePathMarkdown(
       String(row.replicate),
       obs.meta.status,
       String(row.inpMs),
-      String(row.wallClockMs),
+      String(row.scenarioDurationMs),
     ];
     if (row.auxMs != null) {
       cells.push(String(row.auxMs));
@@ -299,8 +299,8 @@ export function pathJiraBlock(pathConfig: PathSeedConfig, dayLabel: string, obse
     '',
     'Surowe wyniki',
     hasAux
-      ? 'profile\treplicate\tstatus\tinpMs\twallClockMs\tauxMs\treplayTotal\treplayServed\treplayBlocked\tcontinued'
-      : 'profile\treplicate\tstatus\tinpMs\twallClockMs\treplayTotal\treplayServed\treplayBlocked\tcontinued',
+      ? 'profile\treplicate\tstatus\tinpMs\tscenarioDurationMs\tauxMs\treplayTotal\treplayServed\treplayBlocked\tcontinued'
+      : 'profile\treplicate\tstatus\tinpMs\tscenarioDurationMs\treplayTotal\treplayServed\treplayBlocked\tcontinued',
   );
 
   for (const row of pathConfig.rows) {
@@ -311,7 +311,7 @@ export function pathJiraBlock(pathConfig: PathSeedConfig, dayLabel: string, obse
       String(row.replicate),
       obs.meta.status,
       String(row.inpMs),
-      String(row.wallClockMs),
+      String(row.scenarioDurationMs),
     ];
     if (row.auxMs != null) {
       cells.push(String(row.auxMs));

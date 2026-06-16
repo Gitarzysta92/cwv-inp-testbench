@@ -7,7 +7,7 @@ export const OBSERVATION_SCHEMA = 'cwv-bench-observation/1' as const;
 export const OBSERVATION_METRICS = [
   'inpMs',
   'eventTimingMaxMs',
-  'wallClockMs',
+  'scenarioDurationMs',
   'interactionWallMs',
   'warmupFirstRequests',
   'warmupFirstServedFromCache',

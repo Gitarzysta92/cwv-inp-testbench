@@ -26,7 +26,7 @@ async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroSc
   await page.waitForTimeout(750);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: `euro-open-menu:${candidate.label}`,
   };

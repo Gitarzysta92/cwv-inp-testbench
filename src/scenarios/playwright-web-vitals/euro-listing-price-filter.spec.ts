@@ -45,7 +45,7 @@ async function exerciseListingPriceFilter(
   const state = await readListingState(page);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: `${priceSection}:filled-${Math.min(inputs.length, values.length)}`,
     meta: {

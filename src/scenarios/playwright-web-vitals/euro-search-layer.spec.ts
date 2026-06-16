@@ -30,7 +30,7 @@ async function exerciseSearchLayer(page: Page, baseUrl: string): Promise<EuroSce
   }));
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: `search-layer:${target.label}`,
     meta: {

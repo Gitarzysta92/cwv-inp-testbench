@@ -30,7 +30,7 @@ async function exerciseListingBrandFilter(
   const state = await readListingState(page);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: brandOption,
     meta: {

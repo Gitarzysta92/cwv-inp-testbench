@@ -7,7 +7,7 @@ Backfill `bench-results/` from already-collected measurements. No browser, no or
 | File | Role |
 |------|------|
 | `experiment.ts` | CLI: loop sessions/paths, call `seedDay` |
-| `measurements.ts` | Raw rows: `profileId`, `replicate`, `inpMs`, `wallClockMs`, replay counters |
+| `measurements.ts` | Raw rows: `profileId`, `replicate`, `inpMs`, `scenarioDurationMs`, replay counters |
 | `publish.ts` | Build observations, write JSON/TSV reports, Jira/markdown exports |
 
 Import experiments reference `lab/euro-cwv-lab/definition.ts` for cohort, methodology, and scenario IDs so aggregated reports match live lab semantics.

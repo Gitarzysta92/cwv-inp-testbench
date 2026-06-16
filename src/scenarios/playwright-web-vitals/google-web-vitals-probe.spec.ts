@@ -64,7 +64,7 @@ async function exerciseGoogleInpProbe(page: Page, baseUrl: string): Promise<Scen
 
   await page.waitForTimeout(500);
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: 'google-inp-probe',
   };
@@ -94,7 +94,7 @@ test('google web-vitals probe', async () => {
     });
 
     expect(metrics['inpMs']).toBeGreaterThanOrEqual(0);
-    expect(metrics['wallClockMs']).toBeGreaterThan(0);
+    expect(metrics['scenarioDurationMs']).toBeGreaterThan(0);
   } catch (err) {
     writeInvocation('failed', {
       scenarioId,

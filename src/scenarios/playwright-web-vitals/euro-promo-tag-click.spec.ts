@@ -30,7 +30,7 @@ async function exercisePromoTagClick(page: Page, baseUrl: string): Promise<EuroS
   );
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: label,
     meta: {

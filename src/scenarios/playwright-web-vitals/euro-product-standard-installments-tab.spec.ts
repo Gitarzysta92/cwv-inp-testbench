@@ -27,7 +27,7 @@ async function exerciseProductStandardInstallmentsTab(
   await page.waitForTimeout(800);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: label,
     meta: {

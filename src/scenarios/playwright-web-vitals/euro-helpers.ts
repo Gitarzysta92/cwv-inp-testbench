@@ -477,7 +477,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
       });
 
       expect(metrics['inpMs']).toBeGreaterThanOrEqual(0);
-      expect(metrics['wallClockMs']).toBeGreaterThan(0);
+      expect(metrics['scenarioDurationMs']).toBeGreaterThan(0);
     } catch (err) {
       writeInvocation('failed', {
         scenarioId: scenario.id,

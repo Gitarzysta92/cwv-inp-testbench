@@ -41,6 +41,13 @@ function gateForDelta(
   return Math.abs(medianDelta) <= lab.methodology.gate.acceptableDeltaMs ? 'pass' : 'fail';
 }
 
+function observationMetricValue(obs: Observation, metric: string): number | undefined {
+  if (metric === 'scenarioDurationMs') {
+    return obs.metrics['scenarioDurationMs'] ?? obs.metrics['wallClockMs'];
+  }
+  return obs.metrics[metric];
+}
+
 /** Aggregates observations into summary rows (profile × scenario × client × metric). */
 export function aggregateObservations(
   observations: Observation[],
@@ -51,7 +58,7 @@ export function aggregateObservations(
   for (const obs of observations) {
     if (obs.meta.status !== 'ok') continue;
     for (const metric of OBSERVATION_METRICS) {
-      const value = obs.metrics[metric];
+      const value = observationMetricValue(obs, metric);
       if (typeof value !== 'number' || Number.isNaN(value)) continue;
       const key = `${obs.profileId}::${obs.scenarioId}::${obs.clientId}::${metric}`;
       if (!groups.has(key)) groups.set(key, []);

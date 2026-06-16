@@ -15,7 +15,7 @@ export type BrowserMetricSnapshot = {
 };
 
 export type ScenarioTiming = {
-  wallClockMs: number;
+  scenarioDurationMs: number;
   interactionWallMs: number;
   interactionLabel?: string;
 };
@@ -291,7 +291,7 @@ export function toBenchMetrics(
   inpSource: string;
 } {
   const metrics: Record<string, number> = {
-    wallClockMs: roundMetric(timing.wallClockMs),
+    scenarioDurationMs: roundMetric(timing.scenarioDurationMs),
     interactionWallMs: roundMetric(timing.interactionWallMs),
     eventTimingMaxMs: roundMetric(snapshot.eventTimingMaxMs),
     eventTimingCount: snapshot.eventTimingCount,

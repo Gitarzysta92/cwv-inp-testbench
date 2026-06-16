@@ -74,7 +74,7 @@ function describeObservation(observation: Observation): string {
     `runReplay=${observation.runReplay}`,
     `inp=${observation.metrics['inpMs'] ?? 'n/a'}`,
     `event=${observation.metrics['eventTimingMaxMs'] ?? 'n/a'}`,
-    `wall=${observation.metrics['wallClockMs'] ?? 'n/a'}`,
+    `duration=${observation.metrics['scenarioDurationMs'] ?? 'n/a'}`,
   ].join(' ');
 }
 

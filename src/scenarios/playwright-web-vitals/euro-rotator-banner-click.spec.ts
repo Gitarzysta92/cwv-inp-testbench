@@ -21,7 +21,7 @@ async function exerciseRotatorBannerClick(page: Page, baseUrl: string): Promise<
   await page.waitForTimeout(1_000);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: label,
     meta: await pageOutcomeMeta(page),

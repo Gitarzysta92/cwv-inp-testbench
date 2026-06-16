@@ -26,7 +26,7 @@ async function exerciseListingScrollProducts(
   const state = await readListingState(page);
 
   return {
-    wallClockMs: Date.now() - startedAt,
+    scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: 'listing-scroll-products',
     meta: listingMeta(state),
