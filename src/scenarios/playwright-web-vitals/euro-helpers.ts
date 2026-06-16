@@ -3,6 +3,7 @@ import type { Page } from 'playwright';
 import {
   assertRuntimeCacheWarmup,
   connectPreparedPage,
+  debugArtifactsMeta,
   env,
   installWebVitals,
   readBrowserMetrics,
@@ -484,6 +485,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
           webVitalsLatestJson: JSON.stringify(snapshot.vitals),
           webVitalsHistoryJson: JSON.stringify(snapshot.history.slice(-12)),
           eventTimingTopJson: JSON.stringify(snapshot.eventTimingEntries.slice(0, 12)),
+          ...debugArtifactsMeta(),
           ...(timing.meta ?? {}),
           ...warmupMetaValues(warmup),
         },

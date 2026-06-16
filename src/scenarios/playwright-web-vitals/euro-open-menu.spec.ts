@@ -1,4 +1,5 @@
 import type { Page } from 'playwright';
+import { writeDebugScreenshot } from './shared';
 import {
   defineEuroScenarioTest,
   findEuroMenuTrigger,
@@ -11,14 +12,17 @@ async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroSc
   const startedAt = Date.now();
   await gotoEuroHome(page, baseUrl);
   await waitForPageAge(page, 2_000);
+  await writeDebugScreenshot(page, '01-home-ready');
 
   const candidate = await findEuroMenuTrigger(page);
   await page.mouse.move(candidate.x, candidate.y);
   await page.waitForTimeout(250);
+  await writeDebugScreenshot(page, '02-menu-hover-target');
 
   const interactionStartedAt = Date.now();
   await page.mouse.down();
   await page.mouse.up();
+  await writeDebugScreenshot(page, '03-menu-click-sent');
 
   await page.waitForFunction(
     () =>
@@ -30,6 +34,7 @@ async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroSc
     { timeout: 7_500 },
   ).catch(() => {});
   await page.waitForTimeout(750);
+  await writeDebugScreenshot(page, '04-menu-after-wait');
 
   return {
     scenarioDurationMs: Date.now() - startedAt,

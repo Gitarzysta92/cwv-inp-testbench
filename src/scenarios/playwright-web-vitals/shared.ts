@@ -142,6 +142,41 @@ function artifactPath(): string {
   return path.join(resultsDir, `${configId}-run${runIndex}-${invocationId}.json`);
 }
 
+function safeArtifactName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.-]+/g, '-').replace(/^-|-$/g, '') || 'artifact';
+}
+
+function debugArtifactsDir(): string {
+  const parsed = path.parse(artifactPath());
+  return path.join(parsed.dir, `${parsed.name}-debug`);
+}
+
+export function debugArtifactsMeta(): Record<string, string | boolean> {
+  return env('BENCH_DEBUG_ARTIFACTS') === '1'
+    ? {
+        debugArtifactsEnabled: true,
+        debugArtifactsDir: debugArtifactsDir(),
+      }
+    : {
+        debugArtifactsEnabled: false,
+      };
+}
+
+export async function writeDebugScreenshot(
+  page: Page,
+  label: string,
+): Promise<string | undefined> {
+  if (env('BENCH_DEBUG_ARTIFACTS') !== '1') {
+    return undefined;
+  }
+
+  const dir = debugArtifactsDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const outPath = path.join(dir, `${safeArtifactName(label)}.png`);
+  await page.screenshot({ path: outPath, fullPage: false }).catch(() => undefined);
+  return outPath;
+}
+
 export function writeInvocation(status: string, metrics?: BenchMetricsAttachment): void {
   const outPath = artifactPath();
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
