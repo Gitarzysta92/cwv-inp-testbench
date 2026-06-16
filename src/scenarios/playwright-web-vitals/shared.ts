@@ -481,6 +481,22 @@ export function writeDebugJson(label: string, data: unknown): string | undefined
   return outPath;
 }
 
+export function writeDebugText(
+  label: string,
+  data: string,
+  extension = 'txt',
+): string | undefined {
+  if (env('BENCH_DEBUG_ARTIFACTS') !== '1') {
+    return undefined;
+  }
+
+  const dir = debugArtifactsDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const outPath = path.join(dir, `${safeArtifactName(label)}.${safeArtifactName(extension)}`);
+  fs.writeFileSync(outPath, data, 'utf8');
+  return outPath;
+}
+
 export async function startChromeTrace(
   page: Page,
   label: string,
@@ -525,6 +541,249 @@ export async function startChromeTrace(
   };
 }
 
+export async function startCpuProfile(
+  page: Page,
+  label: string,
+): Promise<{ stop: () => Promise<string | undefined> }> {
+  if (env('BENCH_CPU_PROFILE') !== '1') {
+    return { stop: async () => undefined };
+  }
+
+  const session = await page.context().newCDPSession(page);
+  await session.send('Profiler.enable');
+  await session.send('Profiler.setSamplingInterval', { interval: 100 });
+  await session.send('Profiler.start');
+
+  return {
+    stop: async () => {
+      try {
+        const profile = await session.send('Profiler.stop');
+        return writeDebugJson(label, profile);
+      } finally {
+        await session.send('Profiler.disable').catch(() => {});
+        await session.detach().catch(() => {});
+      }
+    },
+  };
+}
+
+function percentile(values: number[], p: number): number {
+  if (!values.length) {
+    return 0;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)));
+  return roundMetric(sorted[index]);
+}
+
+export async function captureBrowserSystemInfo(
+  page: Page,
+  label: string,
+): Promise<string | undefined> {
+  if (env('BENCH_CAPTURE_BROWSER_SYSTEM') !== '1') {
+    return undefined;
+  }
+
+  const browser = page.context().browser();
+  const pageGraphics = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    const gl = (
+      canvas.getContext('webgl') ||
+      canvas.getContext('experimental-webgl')
+    ) as WebGLRenderingContext | null;
+    const debugRendererInfo = gl?.getExtension('WEBGL_debug_renderer_info');
+
+    return {
+      userAgent: navigator.userAgent,
+      webdriver: navigator.webdriver,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      devicePixelRatio: window.devicePixelRatio,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      outerWidth: window.outerWidth,
+      outerHeight: window.outerHeight,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height,
+      webglVendor:
+        gl && debugRendererInfo
+          ? String(gl.getParameter(debugRendererInfo.UNMASKED_VENDOR_WEBGL))
+          : '',
+      webglRenderer:
+        gl && debugRendererInfo
+          ? String(gl.getParameter(debugRendererInfo.UNMASKED_RENDERER_WEBGL))
+          : '',
+    };
+  });
+
+  if (!browser) {
+    return writeDebugJson(label, {
+      pageGraphics,
+      systemInfoError: 'browser is not attached to this page context',
+    });
+  }
+
+  const session = await browser.newBrowserCDPSession();
+  try {
+    const systemInfo = await session.send('SystemInfo.getInfo').catch((err) => ({
+      error: err instanceof Error ? err.message : String(err),
+    }));
+    return writeDebugJson(label, { pageGraphics, systemInfo });
+  } finally {
+    await session.detach().catch(() => {});
+  }
+}
+
+export async function captureRafCadence(
+  page: Page,
+  label: string,
+): Promise<string | undefined> {
+  if (env('BENCH_RAF_CADENCE') !== '1') {
+    return undefined;
+  }
+
+  const frameCount = Math.max(10, Math.floor(Number(env('BENCH_RAF_CADENCE_FRAMES', '120'))));
+  const cadence = await page.evaluate((count) => {
+    return new Promise<{
+      frameCount: number;
+      deltas: number[];
+      min: number;
+      max: number;
+      mean: number;
+      p50: number;
+      p95: number;
+      over20ms: number;
+      over30ms: number;
+    }>((resolve) => {
+      const timestamps: number[] = [];
+
+      const finish = () => {
+        const deltas = timestamps
+          .slice(1)
+          .map((timestamp, index) => Math.round((timestamp - timestamps[index]) * 100) / 100);
+        const sorted = [...deltas].sort((a, b) => a - b);
+        const sum = deltas.reduce((total, value) => total + value, 0);
+        const at = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p))] ?? 0;
+
+        resolve({
+          frameCount: timestamps.length,
+          deltas,
+          min: sorted[0] ?? 0,
+          max: sorted[sorted.length - 1] ?? 0,
+          mean: deltas.length ? Math.round((sum / deltas.length) * 100) / 100 : 0,
+          p50: at(0.5),
+          p95: at(0.95),
+          over20ms: deltas.filter((value) => value > 20).length,
+          over30ms: deltas.filter((value) => value > 30).length,
+        });
+      };
+
+      const tick = (timestamp: number) => {
+        timestamps.push(timestamp);
+        if (timestamps.length >= count) {
+          finish();
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(tick);
+    });
+  }, frameCount);
+
+  return writeDebugJson(label, {
+    ...cadence,
+    min: roundMetric(cadence.min),
+    max: roundMetric(cadence.max),
+    mean: roundMetric(cadence.mean),
+    p50: percentile(cadence.deltas, 0.5),
+    p95: percentile(cadence.deltas, 0.95),
+  });
+}
+
+function scriptBodyPatterns(): string[] {
+  const raw = env('BENCH_CAPTURE_SCRIPT_BODY_PATTERNS', '').trim();
+  if (!raw) {
+    return ['chunk-X3VYBJZ7.js'];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.every((value) => typeof value === 'string')) {
+      return parsed;
+    }
+  } catch {
+    // Fall back to comma-separated values below.
+  }
+
+  return raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+export async function captureScriptBodies(
+  page: Page,
+  label: string,
+): Promise<string | undefined> {
+  if (env('BENCH_CAPTURE_SCRIPT_BODIES') !== '1') {
+    return undefined;
+  }
+
+  const patterns = scriptBodyPatterns();
+  const results = await page.evaluate(async (inputs) => {
+    const resources = performance
+      .getEntriesByType('resource')
+      .filter((entry): entry is PerformanceResourceTiming => entry instanceof PerformanceResourceTiming)
+      .filter((entry) => entry.initiatorType === 'script')
+      .map((entry) => entry.name)
+      .filter((url, index, rows) => rows.indexOf(url) === index)
+      .filter((url) => inputs.some((pattern) => url.includes(pattern)));
+
+    return Promise.all(
+      resources.map(async (url) => {
+        try {
+          const response = await fetch(url, {
+            cache: 'force-cache',
+            credentials: 'include',
+            mode: 'cors',
+          });
+          const body = await response.text();
+          return {
+            url,
+            ok: response.ok,
+            status: response.status,
+            contentType: response.headers.get('content-type') || '',
+            body,
+          };
+        } catch (err) {
+          return {
+            url,
+            ok: false,
+            status: 0,
+            contentType: '',
+            error: err instanceof Error ? err.message : String(err),
+            body: '',
+          };
+        }
+      }),
+    );
+  }, patterns);
+
+  const manifest = results.map((result, index) => ({
+    url: result.url,
+    ok: result.ok,
+    status: result.status,
+    contentType: result.contentType,
+    bytes: result.body.length,
+    error: 'error' in result ? result.error : '',
+    path: result.body
+      ? writeDebugText(`${label}-${index}-${path.basename(new URL(result.url).pathname)}`, result.body, 'js')
+      : '',
+  }));
+
+  return writeDebugJson(label, { patterns, scripts: manifest });
+}
+
 export function writeInvocation(status: string, metrics?: BenchMetricsAttachment): void {
   const outPath = artifactPath();
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
@@ -560,6 +819,24 @@ async function pageTargetId(context: BrowserContext, page: Page): Promise<string
   }
 }
 
+async function applyBrowserCpuThrottle(
+  context: BrowserContext,
+  page: Page,
+): Promise<() => Promise<void>> {
+  const rate = Number(env('BENCH_BROWSER_CPU_THROTTLE_RATE', '0'));
+  if (!Number.isFinite(rate) || rate <= 1) {
+    return async () => {};
+  }
+
+  const session = await context.newCDPSession(page);
+  await session.send('Emulation.setCPUThrottlingRate', { rate });
+
+  return async () => {
+    await session.send('Emulation.setCPUThrottlingRate', { rate: 1 }).catch(() => {});
+    await session.detach().catch(() => {});
+  };
+}
+
 export async function connectPreparedPage(): Promise<{
   browser: Browser;
   page: Page;
@@ -579,7 +856,15 @@ export async function connectPreparedPage(): Promise<{
       locale: env('BENCH_LOCALE', 'en-US'),
       timezoneId: env('BENCH_TIMEZONE_ID', 'UTC'),
     });
-    return { browser, page, cleanup: () => browser.close() };
+    const cleanupThrottle = await applyBrowserCpuThrottle(page.context(), page);
+    return {
+      browser,
+      page,
+      cleanup: async () => {
+        await cleanupThrottle();
+        await browser.close();
+      },
+    };
   }
 
   const browser = await chromium.connectOverCDP(cdpUrl);
@@ -595,7 +880,14 @@ export async function connectPreparedPage(): Promise<{
           }
         }
         await page.bringToFront().catch(() => {});
-        return { browser, page, cleanup: async () => {} };
+        const cleanupThrottle = await applyBrowserCpuThrottle(context, page);
+        return {
+          browser,
+          page,
+          cleanup: async () => {
+            await cleanupThrottle();
+          },
+        };
       }
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
@@ -861,11 +1153,16 @@ export function toBenchMetrics(
   metrics: Record<string, number>;
   inpSource: string;
 } {
+  const cpuThrottlingRate = Number(env('BENCH_BROWSER_CPU_THROTTLE_RATE', '0'));
   const metrics: Record<string, number> = {
     scenarioDurationMs: roundMetric(timing.scenarioDurationMs),
     interactionWallMs: roundMetric(timing.interactionWallMs),
     eventTimingMaxMs: roundMetric(snapshot.eventTimingMaxMs),
     eventTimingCount: snapshot.eventTimingCount,
+    browserCpuThrottleRate:
+      Number.isFinite(cpuThrottlingRate) && cpuThrottlingRate > 1
+        ? roundMetric(cpuThrottlingRate)
+        : 0,
     ...warmupMetricValues(warmup),
   };
 

@@ -22,6 +22,7 @@ export type BrowserSessionOptions = {
   policy: ResolvedNetworkPolicy;
   profile: Profile;
   appBaseUrl: string;
+  cpuThrottlingRate?: number;
 };
 
 export type BrowserSession = {
@@ -85,6 +86,13 @@ function disabledNetworkStats(reason?: string): ObservationNetworkStats {
   };
 }
 
+function validCpuThrottlingRate(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value) || value <= 1) {
+    return undefined;
+  }
+  return Math.round(value * 100) / 100;
+}
+
 function networkStatsFromCache(
   recorder: ResponseCacheRecorder | undefined,
   replay: ResponseCacheReplay | undefined,
@@ -138,6 +146,7 @@ function networkStatsFromCache(
 export async function beginBrowserSession(options: BrowserSessionOptions): Promise<BrowserSession> {
   const target = await openPageTarget(options.cdpUrl, 'about:blank');
   const cdp = await CdpConnection.connect(target.webSocketDebuggerUrl);
+  const cpuThrottlingRate = validCpuThrottlingRate(options.cpuThrottlingRate);
 
   let policyHandle: NetworkPolicyHandle | undefined;
   let runtimeCacheRecorder: ResponseCacheRecorder | undefined;
@@ -154,6 +163,9 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
     await runtimeCacheReplay?.detach().catch(() => {});
     policyHandle?.detach();
     runtimeCacheRecorder?.detach();
+    if (cpuThrottlingRate !== undefined) {
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }).catch(() => {});
+    }
     await disableNetworkPolicy(cdp, options.policy).catch(() => {});
     cdp.close();
     await closeTarget(options.cdpUrl, target.id).catch(() => {});
@@ -164,6 +176,9 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
     await cdp.send('Page.enable');
     await cdp.send('Runtime.enable');
     await cdp.send('Storage.enable').catch(() => {});
+    if (cpuThrottlingRate !== undefined) {
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottlingRate });
+    }
 
     await applyDeviceProfile(cdp, options.profile);
     await enableNetworkPolicy(cdp, options.policy);

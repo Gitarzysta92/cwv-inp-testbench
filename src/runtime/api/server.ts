@@ -18,6 +18,10 @@ import { RUNTIME_API_SCHEMA } from './types';
 const defaultPort = () => Number(process.env['RUNTIME_DRIVER_PORT'] ?? 8090);
 const browserCdpUrl = () => process.env['BROWSER_CDP_URL']?.trim();
 const hostBrowserCdpUrl = () => process.env['HOST_BROWSER_CDP_URL']?.trim();
+const browserCpuThrottlingRate = () => {
+  const raw = Number(process.env['BENCH_BROWSER_CPU_THROTTLE_RATE'] ?? 1);
+  return Number.isFinite(raw) && raw > 1 ? Math.round(raw * 100) / 100 : undefined;
+};
 
 type ActiveStep = {
   release: () => Promise<ObservationNetworkStats>;
@@ -242,12 +246,17 @@ async function handlePrepareStep(req: http.IncomingMessage, res: http.ServerResp
   );
   const appBaseUrl = runtime.baseUrl;
   runtime.env['BENCH_RUNTIME_PREPARED'] = '1';
+  const cpuThrottlingRate = browserCpuThrottlingRate();
+  if (cpuThrottlingRate !== undefined) {
+    runtime.env['BENCH_BROWSER_CPU_THROTTLE_RATE'] = String(cpuThrottlingRate);
+  }
 
   const session = await beginBrowserSession({
     cdpUrl,
     policy: runtime.policy,
     profile: prepareInput.profile,
     appBaseUrl,
+    cpuThrottlingRate,
   });
   runtime.env['BENCH_WARMUP_RESULT_JSON'] = JSON.stringify(session.warmup);
   activeSteps.set(prepareInput.stepKey, session);
