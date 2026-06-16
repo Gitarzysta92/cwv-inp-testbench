@@ -5,6 +5,7 @@ import {
   connectPreparedPage,
   debugArtifactsMeta,
   env,
+  flushWebVitalsInp,
   installPageDiagnostics,
   installWebVitals,
   pageDiagnosticsMeta,
@@ -472,6 +473,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
       assertRuntimeCacheWarmup(warmup);
       await installWebVitals(attached.page);
       const timing = await scenario.exercise(attached.page, baseUrl);
+      await flushWebVitalsInp(attached.page);
       const snapshot = await readBrowserMetrics(attached.page);
       await syncBrowserRuntimeErrors(attached.page, diagnostics);
       const { metrics, inpSource } = toBenchMetrics(snapshot, timing, warmup);

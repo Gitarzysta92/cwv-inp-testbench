@@ -136,6 +136,11 @@ export function inpProbeDelayMs(): number {
   return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 180;
 }
 
+export function webVitalsInpFlushTimeoutMs(): number {
+  const raw = Number(process.env['BENCH_WEB_VITALS_INP_FLUSH_TIMEOUT_MS'] ?? 3_000);
+  return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 3_000;
+}
+
 export function readWarmupResult(): WarmupResult | undefined {
   const raw = env('BENCH_WARMUP_RESULT_JSON');
   if (!raw) {
@@ -1143,6 +1148,56 @@ export async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnaps
       navigationTiming,
     };
   });
+}
+
+export async function flushWebVitalsInp(page: Page): Promise<void> {
+  const timeoutMs = webVitalsInpFlushTimeoutMs();
+  if (timeoutMs <= 0) {
+    return;
+  }
+
+  await page
+    .waitForFunction(
+      () => {
+        const state = (window as unknown as {
+          __benchWebVitals?: {
+            latest?: Record<string, VitalMetric>;
+            eventTimingMaxMs?: number;
+          };
+        }).__benchWebVitals;
+        return (
+          typeof state?.latest?.['INP']?.value === 'number' ||
+          (state?.eventTimingMaxMs ?? 0) > 0
+        );
+      },
+      undefined,
+      { timeout: timeoutMs },
+    )
+    .catch(() => {});
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    const hasInp = await page
+      .evaluate(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+
+        const state = (window as unknown as {
+          __benchWebVitals?: { latest?: Record<string, VitalMetric> };
+        }).__benchWebVitals;
+        return typeof state?.latest?.['INP']?.value === 'number';
+      })
+      .catch(() => false);
+
+    if (hasInp) {
+      return;
+    }
+
+    await page.waitForTimeout(100);
+  }
 }
 
 export function toBenchMetrics(
