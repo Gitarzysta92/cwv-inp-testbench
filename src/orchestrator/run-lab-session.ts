@@ -63,11 +63,17 @@ function addNetworkStats(observation: Observation, network: ObservationNetworkSt
     runtimeCacheReplayFulfillFailures: runtimeCache.replay.fulfillFailures,
     runtimeCacheReplayAllHandledLocally: runtimeCache.replay.allHandledLocally ? 1 : 0,
     runtimeCacheReplayAllServedFromCache: runtimeCache.replay.allServedFromCache ? 1 : 0,
+    runtimeCacheReplayMissPolicyContinue: runtimeCache.missPolicy === 'continue' ? 1 : 0,
   });
+
+  const replayFailed =
+    (runtimeCache.missPolicy ?? 'block') === 'block'
+      ? !runtimeCache.replay.allHandledLocally
+      : false;
 
   if (
     runtimeCache.enabled &&
-    !runtimeCache.replay.allHandledLocally &&
+    replayFailed &&
     observation.meta.status === 'ok'
   ) {
     observation.meta.status = 'failed';

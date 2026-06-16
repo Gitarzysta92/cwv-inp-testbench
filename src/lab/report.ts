@@ -22,6 +22,7 @@ export const OBSERVATION_METRICS = [
   'runtimeCacheReplayFulfillFailures',
   'runtimeCacheReplayAllHandledLocally',
   'runtimeCacheReplayAllServedFromCache',
+  'runtimeCacheReplayMissPolicyContinue',
 ] as const;
 
 export type ObservationMetric = (typeof OBSERVATION_METRICS)[number];

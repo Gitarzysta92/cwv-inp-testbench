@@ -6,12 +6,17 @@ export type Cohort = {
   appVersion: string;
 };
 
+export type MetricBoundary = {
+  min: number;
+  max: number;
+};
+
 export type Methodology = {
   replicates: number;
   schedule: BenchSchedule;
   metric: string;
   percentiles: number[];
-  trimExtremesPercent: number;
+  metricBoundaries: Partial<Record<string, MetricBoundary>>;
   gate: {
     baselineProfileId?: string;
     acceptableDeltaMs: number;
@@ -46,6 +51,8 @@ export type RuntimeProfileSlice = {
     browserCache?: 'default' | 'disabled';
     /** Runtime-managed response replay cache policy. */
     runtimeNetworkCache?: 'default' | 'disabled';
+    /** Whether runtime replay cache misses are blocked locally or continue to live network. */
+    runtimeCacheMissPolicy?: 'block' | 'continue';
   };
   warmup: WarmupPolicy;
   application: {
@@ -112,6 +119,7 @@ export type ObservationNetworkStats = {
   runtimeCache: {
     enabled: boolean;
     mode: 'replay' | 'disabled' | 'unavailable';
+    missPolicy?: 'block' | 'continue';
     reason?: string;
     capture: {
       seen: number;
@@ -164,10 +172,33 @@ export type SummaryRow = {
   scenarioId: string;
   clientId: ClientId;
   metric: string;
-  count: number;
-  countUsed: number;
-  stats: Record<string, number>;
-  worst: number | null;
+  sampleCount: number;
+  qualifiedCount: number;
+  outOfRangeCount: number;
+  outOfRangeRatio: number;
+  values: {
+    raw: number[];
+    qualified: number[];
+    outOfRange: number[];
+  };
+  boundary?: MetricBoundary;
+  stats: {
+    median: number | null;
+    mean: number | null;
+    min: number | null;
+    max: number | null;
+    delta: number | null;
+    percentiles: Record<string, number>;
+  };
+  baseline?: {
+    profileId: string;
+    medianDelta: number | null;
+    meanDelta: number | null;
+    minDelta: number | null;
+    maxDelta: number | null;
+    deltaDelta: number | null;
+    gate: 'baseline' | 'pass' | 'fail' | 'n/a';
+  };
 };
 
 export type LabReport = {

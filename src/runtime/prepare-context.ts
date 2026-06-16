@@ -20,6 +20,7 @@ export function prepareRuntimeContext(
     BENCH_API_MODE: profile.application.apiMode,
     BENCH_BROWSER_CACHE: profile.network.browserCache ?? 'default',
     BENCH_RUNTIME_NETWORK_CACHE: profile.network.runtimeNetworkCache ?? 'default',
+    BENCH_RUNTIME_CACHE_MISS_POLICY: profile.network.runtimeCacheMissPolicy ?? 'block',
     ...networkPolicyEnv(profile),
   };
 

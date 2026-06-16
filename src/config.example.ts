@@ -10,7 +10,10 @@ export const lab = {
     schedule: 'interleave' as const,
     metric: 'inpMs',
     percentiles: [50, 75, 95],
-    trimExtremesPercent: 10,
+    metricBoundaries: {
+      inpMs: { min: 10, max: 300 },
+      eventTimingMaxMs: { min: 10, max: 300 },
+    },
     gate: {
       baselineProfileId: 'baseline',
       acceptableDeltaMs: 40,

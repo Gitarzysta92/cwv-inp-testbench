@@ -1,26 +1,55 @@
 #!/usr/bin/env node
 /**
- * Euro.com.pl menu/listing experiment using orchestrator scheduling.
+ * Euro CWV lab — profiles × scenarios × replicates via isolated Docker runtime.
  *
- * The orchestrator expands profiles x scenarios x runReplay into flat
- * instructions, then starts a fresh runtime Docker container for each one.
- *
- *   npx tsx src/experiments/euro-menu-isolated-orchestrator-experiment.ts
+ *   npm run bench:euro
+ *   BENCH_REPLICATES=100 npm run bench:euro
+ *   npx tsx src/experiments/lab/euro-cwv-lab/experiment.ts
  */
 import * as path from 'path';
-import type { LabDefinition, Observation } from '../lab/types';
-import { runLabSession, type RuntimeApiLease } from '../orchestrator/run-lab-session';
-import type { OrchestratorRunInstruction } from '../orchestrator/scheduler';
-import { RuntimeApiClient } from '../orchestrator/runtime-api-client';
-import { upDockerStack } from '../runtime/tests/stack';
-import { euroMenuMethodologyLab } from './euro-menu-methodology-lab';
+import type { LabDefinition, Observation } from '../../../lab/types';
+import { runLabSession, type RunLabSessionResult, type RuntimeApiLease } from '../../../orchestrator/run-lab-session';
+import type { OrchestratorRunInstruction } from '../../../orchestrator/scheduler';
+import { RuntimeApiClient } from '../../../orchestrator/runtime-api-client';
+import { upDockerStack } from '../../../runtime/tests/stack';
+import { euroMenuMethodologyLab } from './definition';
 
-function readReplicates(): number {
-  const raw = Number(process.env['BENCH_REPLICATES'] ?? euroMenuMethodologyLab.lab.methodology.replicates);
-  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : euroMenuMethodologyLab.lab.methodology.replicates;
+export { euroMenuMethodologyLab, euroMenuMethodologyProfiles } from './definition';
+export { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './profiles';
+
+export type RunEuroExperimentOptions = {
+  repoRoot?: string;
+  replicates?: number;
+  scenarioIds?: string[];
+  title?: string;
+};
+
+function readReplicates(defaultReplicates: number): number {
+  const raw = Number(process.env['BENCH_REPLICATES'] ?? defaultReplicates);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : defaultReplicates;
 }
 
-function definition(): LabDefinition {
+function selectScenarios(
+  allScenarios: LabDefinition['scenarios'],
+  requestedIds: string[],
+): LabDefinition['scenarios'] {
+  const selected = allScenarios.filter((scenario) => requestedIds.includes(scenario.id));
+  const unknown = requestedIds.filter((id) => !allScenarios.some((scenario) => scenario.id === id));
+  if (unknown.length > 0) {
+    throw new Error(`unknown scenario(s): ${unknown.join(', ')}`);
+  }
+  if (selected.length === 0) {
+    throw new Error('no scenarios selected');
+  }
+  return selected;
+}
+
+export function resolveEuroLabDefinition(options: Pick<RunEuroExperimentOptions, 'replicates' | 'scenarioIds'> = {}): LabDefinition {
+  const resolvedReplicates = options.replicates ?? readReplicates(euroMenuMethodologyLab.lab.methodology.replicates);
+  const scenarios = options.scenarioIds?.length
+    ? selectScenarios(euroMenuMethodologyLab.scenarios, options.scenarioIds)
+    : euroMenuMethodologyLab.scenarios;
+
   return {
     ...euroMenuMethodologyLab,
     lab: {
@@ -31,9 +60,10 @@ function definition(): LabDefinition {
       },
       methodology: {
         ...euroMenuMethodologyLab.lab.methodology,
-        replicates: readReplicates(),
+        replicates: resolvedReplicates,
       },
     },
+    scenarios,
   };
 }
 
@@ -84,15 +114,18 @@ async function startRuntimeForInstruction(input: {
   };
 }
 
-async function main(): Promise<void> {
-  const repoRoot = path.resolve(process.cwd());
-  const labDefinition = definition();
+export async function runEuroExperiment(options: RunEuroExperimentOptions = {}): Promise<RunLabSessionResult> {
+  const repoRoot = options.repoRoot ?? path.resolve(process.cwd());
+  const labDefinition = resolveEuroLabDefinition({
+    replicates: options.replicates,
+    scenarioIds: options.scenarioIds,
+  });
   const instructionCount =
     labDefinition.profiles.length *
     labDefinition.scenarios.length *
     labDefinition.lab.methodology.replicates;
 
-  console.error('\nEuro menu/listing isolated orchestrator experiment');
+  console.error(`\n${options.title ?? 'Euro CWV lab'}`);
   console.error(`  scenarios:  ${labDefinition.scenarios.map((scenario) => scenario.id).join(', ')}`);
   console.error(
     `  specs:      ${labDefinition.scenarios
@@ -128,11 +161,15 @@ async function main(): Promise<void> {
   console.error(`  summary rows: ${result.report.summary.length}`);
 
   if (result.failures > 0) {
-    throw new Error(`${result.failures} Euro menu observation(s) failed`);
+    throw new Error(`${result.failures} Euro observation(s) failed`);
   }
+
+  return result;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runEuroExperiment().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

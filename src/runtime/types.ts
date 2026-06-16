@@ -22,6 +22,7 @@ export type RuntimeProfileView = {
     blockScripts?: string[];
     browserCache?: 'default' | 'disabled';
     runtimeNetworkCache?: 'default' | 'disabled';
+    runtimeCacheMissPolicy?: 'block' | 'continue';
   };
   application: { apiMode: string };
   slowdown?: {

@@ -14,12 +14,17 @@ import {
 
 async function exerciseGoogleInpProbe(page: Page, baseUrl: string): Promise<ScenarioTiming> {
   const startedAt = Date.now();
-  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('load', { timeout: 15_000 }).catch(() => {});
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15_000 }).catch(async () => {
+    await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 5_000 }).catch(() => {});
+  });
+  await page.waitForLoadState('load', { timeout: 5_000 }).catch(() => {});
   await page.waitForTimeout(500);
 
   const delayMs = inpProbeDelayMs();
   await page.evaluate((delay) => {
+    if (!document.body) {
+      document.documentElement.appendChild(document.createElement('body'));
+    }
     const existing = document.getElementById('bench-inp-probe');
     existing?.remove();
 

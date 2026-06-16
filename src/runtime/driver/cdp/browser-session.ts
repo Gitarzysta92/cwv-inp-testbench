@@ -57,6 +57,7 @@ function disabledNetworkStats(reason?: string): ObservationNetworkStats {
     runtimeCache: {
       enabled: false,
       mode: reason ? 'unavailable' : 'disabled',
+      missPolicy: 'block',
       reason,
       capture: {
         seen: 0,
@@ -92,6 +93,7 @@ function networkStatsFromCache(
     runtimeCache: {
       enabled: true,
       mode: 'replay',
+      missPolicy: replay.missPolicy,
       capture: {
         seen: recorder.stats.seen,
         stored: recorder.stats.stored,
@@ -178,7 +180,9 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
       await runtimeCacheRecorder.drain();
       runtimeCacheRecorder.detach();
       await navigate(cdp, 'about:blank');
-      runtimeCacheReplay = await enableResponseCacheReplay(cdp, runtimeCacheRecorder.cache);
+      runtimeCacheReplay = await enableResponseCacheReplay(cdp, runtimeCacheRecorder.cache, {
+        missPolicy: options.profile.network.runtimeCacheMissPolicy ?? 'block',
+      });
       networkStats = networkStatsFromCache(runtimeCacheRecorder, runtimeCacheReplay);
     }
 

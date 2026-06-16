@@ -32,6 +32,15 @@ export function validateLab(definition: LabDefinition): void {
     ) {
       throw new Error(`profile "${profile.id}" network.blockScripts must be an array`);
     }
+    if (
+      profile.network.runtimeCacheMissPolicy !== undefined &&
+      profile.network.runtimeCacheMissPolicy !== 'block' &&
+      profile.network.runtimeCacheMissPolicy !== 'continue'
+    ) {
+      throw new Error(
+        `profile "${profile.id}" network.runtimeCacheMissPolicy must be block or continue`,
+      );
+    }
     profileIds.add(profile.id);
   }
 
@@ -67,5 +76,25 @@ export function validateLab(definition: LabDefinition): void {
     throw new Error(
       `methodology.metric "${lab.methodology.metric}" must be one of: ${OBSERVATION_METRICS.join(', ')}`,
     );
+  }
+
+  for (const [metric, boundary] of Object.entries(lab.methodology.metricBoundaries)) {
+    if (
+      !OBSERVATION_METRICS.includes(metric as (typeof OBSERVATION_METRICS)[number])
+    ) {
+      throw new Error(
+        `methodology.metricBoundaries "${metric}" must be one of: ${OBSERVATION_METRICS.join(', ')}`,
+      );
+    }
+    if (
+      !boundary ||
+      !Number.isFinite(boundary.min) ||
+      !Number.isFinite(boundary.max) ||
+      boundary.min >= boundary.max
+    ) {
+      throw new Error(
+        `methodology.metricBoundaries "${metric}" must define finite min < max`,
+      );
+    }
   }
 }

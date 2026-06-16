@@ -12,6 +12,7 @@ export function runtimeSlice(profile: Profile) {
       blockScripts: profile.network.blockScripts,
       browserCache: profile.network.browserCache,
       runtimeNetworkCache: profile.network.runtimeNetworkCache,
+      runtimeCacheMissPolicy: profile.network.runtimeCacheMissPolicy,
     },
     application: { apiMode: profile.application.apiMode },
     slowdown: profile.slowdown,
@@ -33,5 +34,6 @@ export function buildRuntimeEnvironmentId(
   const browserCache = profile.network.browserCache === 'disabled' ? 'bcache-off' : 'bcache-on';
   const runtimeCache =
     profile.network.runtimeNetworkCache === 'disabled' ? 'rtcache-off' : 'rtcache-on';
-  return `${profile.id}:${profile.warmup}:${profile.application.apiMode}:${slow}:${networkEnvironmentId(network)}:${browserCache}:${runtimeCache}:${networkPolicyFingerprint(policy)}`;
+  const missPolicy = `miss-${profile.network.runtimeCacheMissPolicy ?? 'block'}`;
+  return `${profile.id}:${profile.warmup}:${profile.application.apiMode}:${slow}:${networkEnvironmentId(network)}:${browserCache}:${runtimeCache}:${missPolicy}:${networkPolicyFingerprint(policy)}`;
 }

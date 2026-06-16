@@ -1,4 +1,4 @@
-import type { Profile } from '../lab/types';
+import type { Profile } from '../../../lab/types';
 
 export const GOOGLE_APP_URL =
   process.env['GOOGLE_APP_URL'] ?? 'https://www.google.com';
@@ -20,6 +20,7 @@ export function googleLiveProfile(overrides?: Partial<Profile>): Profile {
       kind: 'live',
       baseUrl: GOOGLE_APP_URL,
       blockScripts: GOOGLE_BLOCK_SCRIPT_PATTERNS,
+      runtimeCacheMissPolicy: 'continue',
     },
     device: { width: 1280, height: 720 },
     system: { timezoneId: 'UTC', locale: 'en-US' },

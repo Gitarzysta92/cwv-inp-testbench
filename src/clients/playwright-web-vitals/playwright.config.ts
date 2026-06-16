@@ -18,6 +18,9 @@ const viewportHeight = Number(process.env['BENCH_VIEWPORT_HEIGHT'] ?? '720');
 const locale = process.env['BENCH_LOCALE'] ?? 'en-US';
 const timezoneId = process.env['BENCH_TIMEZONE_ID'] ?? 'UTC';
 const headed = process.env['BENCH_HEADED'] === '1';
+const testTimeout = Number(
+  process.env['BENCH_PLAYWRIGHT_TEST_TIMEOUT_MS'] ?? (orchestrated ? '120000' : '60000'),
+);
 
 /**
  * Container-oriented defaults: one worker, stable viewport/locale/timezone, Chromium-only POC.
@@ -28,6 +31,7 @@ const headed = process.env['BENCH_HEADED'] === '1';
  */
 export default defineConfig({
   testDir: '../../scenarios/playwright-web-vitals',
+  timeout: Number.isFinite(testTimeout) && testTimeout > 0 ? testTimeout : 120_000,
   fullyParallel: false,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,

@@ -106,6 +106,13 @@ function validatePrepareStepRequest(input: unknown): string | undefined {
   ) {
     return 'profile.network.runtimeNetworkCache must be default or disabled when provided';
   }
+  if (
+    network['runtimeCacheMissPolicy'] !== undefined &&
+    network['runtimeCacheMissPolicy'] !== 'block' &&
+    network['runtimeCacheMissPolicy'] !== 'continue'
+  ) {
+    return 'profile.network.runtimeCacheMissPolicy must be block or continue when provided';
+  }
 
   const application = profile['application'];
   if (!isRecord(application) || !isNonEmptyString(application['apiMode'])) {

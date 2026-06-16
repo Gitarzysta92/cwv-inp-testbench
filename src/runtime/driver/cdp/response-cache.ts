@@ -29,6 +29,7 @@ export type ResponseCacheRecorder = {
 };
 
 export type ResponseCacheReplay = {
+  missPolicy: 'block' | 'continue';
   stats: {
     seen: number;
     served: number;
@@ -248,7 +249,11 @@ export function attachResponseCacheRecorder(
 export async function enableResponseCacheReplay(
   cdp: CdpConnection,
   cache: ResponseCache,
+  options: {
+    missPolicy?: 'block' | 'continue';
+  } = {},
 ): Promise<ResponseCacheReplay> {
+  const missPolicy = options.missPolicy ?? 'block';
   const stats = {
     seen: 0,
     served: 0,
@@ -282,10 +287,15 @@ export async function enableResponseCacheReplay(
 
       stats.missed += 1;
       misses.push(`${method} ${url}`);
-      await cdp.send('Fetch.failRequest', {
-        requestId,
-        errorReason: 'BlockedByClient',
-      });
+      if (missPolicy === 'continue') {
+        await cdp.send('Fetch.continueRequest', { requestId });
+        stats.continued += 1;
+      } else {
+        await cdp.send('Fetch.failRequest', {
+          requestId,
+          errorReason: 'BlockedByClient',
+        });
+      }
     } catch (err) {
       stats.fulfillFailed += 1;
       if (fulfillFailureMessages.length < 20) {
@@ -307,6 +317,7 @@ export async function enableResponseCacheReplay(
   });
 
   return {
+    missPolicy,
     stats,
     misses,
     fulfillFailureMessages,

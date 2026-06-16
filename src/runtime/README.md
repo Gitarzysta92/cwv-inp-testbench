@@ -2,7 +2,7 @@
 
 Runtime is the **browser measurement environment**: it prepares everything the browser needs for a lab step from the profile’s runtime slice, then exposes that environment to clients.
 
-Runtime **serves and drives the browser** — app target, network policy, warmup/slowdown, and CDP-applied browser state — using a lab definition (see `src/config.example.ts` for a template; Euro runs use `src/experiments/euro-menu-methodology-lab.ts`). Clients **attach** to a prepared browser and **run scenarios** (measurement scripts only). The orchestrator schedules steps; it does not set up the browser.
+Runtime **serves and drives the browser** — app target, network policy, warmup/slowdown, and CDP-applied browser state — using a lab definition (see `src/config.example.ts` for a template; Euro runs use `src/experiments/lab/euro-cwv-lab/`). Clients **attach** to a prepared browser and **run scenarios** (measurement scripts only). The orchestrator schedules steps; it does not set up the browser.
 
 ```
 profile (runtime slice)
@@ -47,6 +47,19 @@ The profile splits into **runtime slice** (`network`, `warmup`, `application`, `
 | `network-policy.ts` | Resolve and export mock-api / blockScripts policy |
 | `profile-slice.ts` | Runtime slice view + `runtimeEnvironmentId` fingerprint |
 | `driver/cdp/` | Thin CDP driver: Fetch mocks, Network blocking, warmup, session |
+
+### Runtime cache miss policy
+
+`profile.network.runtimeCacheMissPolicy` controls what happens when replay cache
+does not contain a paused request:
+
+| Policy | Behavior | Use |
+| --- | --- | --- |
+| `continue` | Continue cache misses to live network and report them as diagnostics. | Live lab measurements where `live euro.com.pl` is allowed. |
+| `block` | Fail cache misses locally and fail the observation if replay leaks. | Offline replay/runtime isolation smoke tests. |
+
+The default is `block` for explicit isolation. Euro/Google live lab profiles set
+`continue` because the conceptual runtime variant is not fully locally served.
 
 ### Driver API
 

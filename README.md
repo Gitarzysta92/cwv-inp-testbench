@@ -33,8 +33,8 @@ flowchart TD
   H --> I
   I --> J["Lab analysis"]
 
-  J --> J1["Percentyle<br/>p50 / p75 / p95"]
-  J --> J2["Trim extremes"]
+  J --> J1["Kwalifikacja probek<br/>metricBoundaries"]
+  J --> J2["Median / mean / min / max / delta"]
   J --> J3["Porownanie do baseline"]
   J --> J4["Gate<br/>acceptable delta"]
 
@@ -67,7 +67,7 @@ flowchart TB
 
   subgraph Lab
     L1["agreguje wyniki"]
-    L2["liczy percentyle"]
+    L2["liczy statystyki kwalifikowanych probek"]
     L3["porownuje profile"]
     L4["generuje raport"]
   end
@@ -115,19 +115,15 @@ profileId x scenarioId x clientId x metric
 Dla kazdej metryki:
 
 1. brane sa tylko poprawne obserwacje (`status = ok`),
-2. wartosci sa sortowane rosnaco,
-3. opcjonalnie obcinane sa skrajne wyniki (`trimExtremesPercent`),
-4. liczone sa percentyle `p50`, `p75`, `p95`.
+2. raw values sa zapisywane w raporcie dla audytu,
+3. wartosci sa kwalifikowane wedlug `metricBoundaries`, np. `inpMs: 10..300`,
+4. wyniki poza zakresem sa raportowane jako out-of-range, a nie mieszane z wynikiem bazowym,
+5. dla wartosci kwalifikujacych sie liczone sa: mediana, srednia, min, max i delta (`max - min`),
+6. liczony jest procent out-of-range wzgledem wszystkich runow,
+7. liczone sa delty wzgledem baseline dla mediany, sredniej i delty.
 
-Percentyle sa liczone liniowo, a nie metoda nearest-rank.
-
-Przyklad interpretacji:
-
-| Percentyl | Znaczenie |
-|---|---|
-| `p50` | typowy wynik, mediana |
-| `p75` | gorszy, ale nadal czesty przypadek |
-| `p95` | ogon rozkladu, stabilnosc w trudniejszych runach |
+Percentyle `p50`, `p75`, `p95` sa nadal dolaczane jako pomocnicze pola raportu,
+ale podstawowy model oceny to mediana/srednia/min/max/delta po kwalifikacji.
 
 `wallClockMs` to calkowity czas wykonania scenariusza od startu do konca:
 nawigacja, oczekiwanie na load, czyszczenie overlayow, akcja uzytkownika i
@@ -148,7 +144,8 @@ Glowna metryka metodologii:
 
 ```text
 metric: inpMs
-percentiles: p50 / p75 / p95
+metricBoundaries: inpMs 10..300, eventTimingMaxMs 10..300
+summary: median / mean / min / max / delta / out-of-range
 schedule: interleave
 gate: baseline + acceptableDeltaMs = 40
 ```
@@ -187,14 +184,14 @@ Sesja: `e8bae544-a99c-4657-9be8-8548f91a25f4`
 Scenariusz: `scenario-euro-open-menu`  
 Replikacje: `5` na profil
 
-| Profil | INP p50 | INP p75 | INP p95 | Wall time p50 | Replay do sieci |
-|---|---:|---:|---:|---:|---:|
-| baseline | 40 ms | 40 ms | 40 ms | 2775 ms | 0 |
-| cold browser cache | 40 ms | 40 ms | 46.4 ms | 2207 ms | 0 |
-| cache disabled | 32 ms | 40 ms | 40 ms | 2817 ms | 0 |
-| external scripts blocked | 32 ms | 40 ms | 40 ms | 2314 ms | 0 |
+| Profil | INP median | INP mean | Out-of-range | INP min | INP max | INP delta |
+|---|---:|---:|---:|---:|---:|---:|
+| baseline | 40 ms | 36.8 ms | 0% | 32 ms | 40 ms | 8 ms |
+| cold browser cache | 40 ms | 38.4 ms | 0% | 32 ms | 48 ms | 16 ms |
+| cache disabled | 32 ms | 35.2 ms | 0% | 32 ms | 40 ms | 8 ms |
+| external scripts blocked | 32 ms | 33.6 ms | 0% | 24 ms | 40 ms | 16 ms |
 
-Wniosek z malej proby: blokowanie external scripts poprawilo `p50 INP` o ok.
+Wniosek z malej proby: blokowanie external scripts poprawilo median INP o ok.
 `8 ms` wzgledem baseline. To jest sygnal kierunku, nie finalny wniosek
 statystyczny. Docelowo potrzebujemy wiecej scenariuszy i wiecej replikacji,
 np. `100` runow na profil.
@@ -222,13 +219,21 @@ npm run runtime:docker:build
 Eksperyment Euro przez izolowany orchestrator:
 
 ```bash
-npx tsx src/experiments/euro-menu-isolated-orchestrator-experiment.ts
+npm run bench:euro
 ```
+
+Szybszy wariant — tylko hamburger menu (4 profile × 5 replik = 20 kroków):
+
+```bash
+npm run bench:euro:menu
+```
+
+Szczegoly typow eksperymentow (lab / runtime / import): `src/experiments/README.md`.
 
 Liczbe replikacji mozna nadpisac:
 
 ```bash
-BENCH_REPLICATES=100 npx tsx src/experiments/euro-menu-isolated-orchestrator-experiment.ts
+BENCH_REPLICATES=100 npm run bench:euro
 ```
 
 Wyniki trafiaja do:
@@ -238,4 +243,3 @@ bench-results/observations/<sessionId>/
 bench-results/summary/<sessionId>/report.json
 bench-results/summary/<sessionId>/report.tsv
 ```
-

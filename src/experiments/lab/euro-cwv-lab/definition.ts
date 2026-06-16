@@ -1,5 +1,5 @@
-import type { LabDefinition, Profile } from '../lab/types';
-import { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './euro-offline-replay-fixtures';
+import type { LabDefinition, Profile } from '../../../lab/types';
+import { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './profiles';
 
 export const EURO_MENU_SCENARIO_ID = 'scenario-euro-open-menu';
 export const EURO_SEARCH_LAYER_SCENARIO_ID = 'scenario-euro-search-layer';
@@ -51,6 +51,7 @@ const profileBase = {
   network: {
     kind: 'live' as const,
     baseUrl: EURO_APP_URL,
+    runtimeCacheMissPolicy: 'continue' as const,
   },
 };
 
@@ -117,7 +118,10 @@ export const euroMenuMethodologyLab: LabDefinition = {
       schedule: 'interleave',
       metric: 'inpMs',
       percentiles: [50, 75, 95],
-      trimExtremesPercent: 10,
+      metricBoundaries: {
+        inpMs: { min: 10, max: 300 },
+        eventTimingMaxMs: { min: 10, max: 300 },
+      },
       gate: {
         baselineProfileId: 'baseline',
         acceptableDeltaMs: 40,

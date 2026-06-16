@@ -1,4 +1,4 @@
-import type { Profile } from '../lab/types';
+import type { Profile } from '../../../lab/types';
 
 export const EURO_APP_URL = process.env['EURO_APP_URL'] ?? 'https://www.euro.com.pl/';
 
@@ -28,6 +28,7 @@ export function euroLiveProfile(overrides?: Partial<Profile>): Profile {
       kind: 'live',
       baseUrl: EURO_APP_URL,
       blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
+      runtimeCacheMissPolicy: 'continue',
     },
     device: { width: 1366, height: 768 },
     system: { timezoneId: 'Europe/Warsaw', locale: 'pl-PL' },
