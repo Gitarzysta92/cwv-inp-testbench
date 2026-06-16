@@ -61,6 +61,7 @@ function buildNetworkStats(row: RawRow): ObservationNetworkStats {
   return {
     policy: {
       blockedByPolicy: 0,
+      blockedRequests: [],
     },
     runtimeCache: {
       enabled,

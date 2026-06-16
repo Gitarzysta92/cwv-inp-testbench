@@ -56,6 +56,7 @@ function disabledNetworkStats(reason?: string): ObservationNetworkStats {
   return {
     policy: {
       blockedByPolicy: 0,
+      blockedRequests: [],
     },
     runtimeCache: {
       enabled: false,
@@ -94,6 +95,7 @@ function networkStatsFromCache(
       ...disabledNetworkStats(),
       policy: {
         blockedByPolicy: policyHandle?.stats.blockedByPolicy ?? 0,
+        blockedRequests: policyHandle?.stats.blockedRequests ?? [],
       },
     };
   }
@@ -101,6 +103,7 @@ function networkStatsFromCache(
   return {
     policy: {
       blockedByPolicy: policyHandle?.stats.blockedByPolicy ?? 0,
+      blockedRequests: policyHandle?.stats.blockedRequests ?? [],
     },
     runtimeCache: {
       enabled: true,

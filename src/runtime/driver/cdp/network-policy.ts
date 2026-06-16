@@ -20,6 +20,13 @@ function mockBodyForUrl(url: string): string | undefined {
 export type NetworkPolicyHandle = {
   stats: {
     blockedByPolicy: number;
+    blockedRequests: Array<{
+      url: string;
+      method?: string;
+      resourceType?: string;
+      blockedReason?: string;
+      errorText?: string;
+    }>;
   };
   detach: () => void;
 };
@@ -31,25 +38,54 @@ export function applyNetworkPolicy(
 ): NetworkPolicyHandle {
   const stats = {
     blockedByPolicy: 0,
+    blockedRequests: [] as NetworkPolicyHandle['stats']['blockedRequests'],
+  };
+  const requests = new Map<string, { url: string; method?: string; resourceType?: string }>();
+
+  const onRequestWillBeSent = (params: Record<string, unknown>): void => {
+    const requestId = params['requestId'] as string | undefined;
+    const request = params['request'] as { method?: string; url?: string } | undefined;
+    if (!requestId || !request?.url) {
+      return;
+    }
+    requests.set(requestId, {
+      url: request.url,
+      method: request.method,
+      resourceType: params['type'] as string | undefined,
+    });
   };
 
   const onLoadingFailed = (params: Record<string, unknown>): void => {
     if (!policy.blockScripts.length) {
       return;
     }
+    const requestId = params['requestId'] as string | undefined;
     const blockedReason = params['blockedReason'];
     const errorText = String(params['errorText'] ?? '');
     if (blockedReason === 'inspector' || errorText.includes('ERR_BLOCKED_BY_CLIENT')) {
+      const request = requestId ? requests.get(requestId) : undefined;
       stats.blockedByPolicy += 1;
+      stats.blockedRequests.push({
+        url: request?.url ?? '<unknown>',
+        ...(request?.method ? { method: request.method } : {}),
+        ...(request?.resourceType ? { resourceType: request.resourceType } : {}),
+        ...(typeof blockedReason === 'string' ? { blockedReason } : {}),
+        ...(errorText ? { errorText } : {}),
+      });
+    }
+    if (requestId) {
+      requests.delete(requestId);
     }
   };
 
+  cdp.on('Network.requestWillBeSent', onRequestWillBeSent);
   cdp.on('Network.loadingFailed', onLoadingFailed);
 
   if (!policy.mockApi) {
     return {
       stats,
       detach: () => {
+        cdp.off('Network.requestWillBeSent', onRequestWillBeSent);
         cdp.off('Network.loadingFailed', onLoadingFailed);
       },
     };
@@ -85,6 +121,7 @@ export function applyNetworkPolicy(
   return {
     stats,
     detach: () => {
+      cdp.off('Network.requestWillBeSent', onRequestWillBeSent);
       cdp.off('Network.loadingFailed', onLoadingFailed);
       cdp.off('Fetch.requestPaused', onFetchPaused);
     },

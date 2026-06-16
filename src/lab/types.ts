@@ -117,6 +117,13 @@ export type ObservationStatus = 'ok' | 'missing_metric' | 'failed' | 'not_implem
 export type ObservationNetworkStats = {
   policy: {
     blockedByPolicy: number;
+    blockedRequests: Array<{
+      url: string;
+      method?: string;
+      resourceType?: string;
+      blockedReason?: string;
+      errorText?: string;
+    }>;
   };
   runtimeCache: {
     enabled: boolean;
