@@ -5,14 +5,12 @@ function roundStat(value: number): number {
   return Number(value.toFixed(4));
 }
 
-function percentileLinear(sorted: number[], p: number): number | null {
+function medianSorted(sorted: number[]): number | null {
   if (sorted.length === 0) return null;
   if (sorted.length === 1) return sorted[0];
-  const idx = (sorted.length - 1) * (p / 100);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid];
+  return (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 function mean(values: number[]): number | null {
@@ -76,16 +74,8 @@ export function aggregateObservations(
     const qualifiedSorted = [...qualified].sort((a, b) => a - b);
     const min = qualifiedSorted[0] ?? null;
     const max = qualifiedSorted[qualifiedSorted.length - 1] ?? null;
-    const median = percentileLinear(qualifiedSorted, 50);
+    const median = medianSorted(qualifiedSorted);
     const average = mean(qualifiedSorted);
-    const percentiles: Record<string, number> = {};
-
-    for (const p of lab.methodology.percentiles) {
-      const value = percentileLinear(qualifiedSorted, p);
-      if (value !== null) {
-        percentiles[`p${p}`] = roundStat(value);
-      }
-    }
 
     rows.push({
       profileId,
@@ -108,7 +98,6 @@ export function aggregateObservations(
         min: min === null ? null : roundStat(min),
         max: max === null ? null : roundStat(max),
         delta: min === null || max === null ? null : roundStat(max - min),
-        percentiles,
       },
     });
   }
@@ -158,8 +147,7 @@ export function aggregateObservations(
   return rows;
 }
 
-export function summaryToTsv(rows: SummaryRow[], percentiles: number[]): string {
-  const percentileHeaders = percentiles.map((p) => `p${p}`);
+export function summaryToTsv(rows: SummaryRow[]): string {
   const header = [
     'profileId',
     'scenarioId',
@@ -180,7 +168,6 @@ export function summaryToTsv(rows: SummaryRow[], percentiles: number[]): string 
     'baselineMeanDelta',
     'baselineDeltaDelta',
     'gate',
-    ...percentileHeaders,
   ];
   const lines = [header.join('\t')];
 
@@ -206,7 +193,6 @@ export function summaryToTsv(rows: SummaryRow[], percentiles: number[]): string 
         row.baseline?.meanDelta ?? '',
         row.baseline?.deltaDelta ?? '',
         row.baseline?.gate ?? '',
-        ...percentileHeaders.map((key) => row.stats.percentiles[key] ?? ''),
       ].join('\t'),
     );
   }

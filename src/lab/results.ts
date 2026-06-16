@@ -40,7 +40,7 @@ export class LabResultsService {
     fs.writeFileSync(path.join(summaryDir, 'report.json'), JSON.stringify(report, null, 2), 'utf8');
     fs.writeFileSync(
       path.join(summaryDir, 'report.tsv'),
-      summaryToTsv(report.summary, this.definition.lab.methodology.percentiles),
+      summaryToTsv(report.summary),
       'utf8',
     );
   }

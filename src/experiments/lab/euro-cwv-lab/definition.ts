@@ -117,7 +117,6 @@ export const euroMenuMethodologyLab: LabDefinition = {
       replicates: 10,
       schedule: 'interleave',
       metric: 'inpMs',
-      percentiles: [50, 75, 95],
       metricBoundaries: {
         inpMs: { min: 10, max: 300 },
         eventTimingMaxMs: { min: 10, max: 300 },

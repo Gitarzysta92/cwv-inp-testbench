@@ -15,7 +15,6 @@ export type Methodology = {
   replicates: number;
   schedule: BenchSchedule;
   metric: string;
-  percentiles: number[];
   metricBoundaries: Partial<Record<string, MetricBoundary>>;
   gate: {
     baselineProfileId?: string;
@@ -191,7 +190,6 @@ export type SummaryRow = {
     min: number | null;
     max: number | null;
     delta: number | null;
-    percentiles: Record<string, number>;
   };
   baseline?: {
     profileId: string;

@@ -9,7 +9,6 @@ export const lab = {
     replicates: 5,
     schedule: 'interleave' as const,
     metric: 'inpMs',
-    percentiles: [50, 75, 95],
     metricBoundaries: {
       inpMs: { min: 10, max: 300 },
       eventTimingMaxMs: { min: 10, max: 300 },

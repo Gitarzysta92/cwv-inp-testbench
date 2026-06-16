@@ -122,8 +122,8 @@ Dla kazdej metryki:
 6. liczony jest procent out-of-range wzgledem wszystkich runow,
 7. liczone sa delty wzgledem baseline dla mediany, sredniej i delty.
 
-Percentyle `p50`, `p75`, `p95` sa nadal dolaczane jako pomocnicze pola raportu,
-ale podstawowy model oceny to mediana/srednia/min/max/delta po kwalifikacji.
+Raport nie liczy percentyli. Podstawowy model oceny to
+mediana/srednia/min/max/delta po kwalifikacji.
 
 `wallClockMs` to calkowity czas wykonania scenariusza od startu do konca:
 nawigacja, oczekiwanie na load, czyszczenie overlayow, akcja uzytkownika i

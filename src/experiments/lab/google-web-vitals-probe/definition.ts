@@ -17,7 +17,6 @@ export function googleWebVitalsProbeLab(replicates: number): LabDefinition {
         replicates,
         schedule: 'sequential',
         metric: 'inpMs',
-        percentiles: [50, 75, 95],
         metricBoundaries: {
           inpMs: { min: 10, max: 300 },
           eventTimingMaxMs: { min: 10, max: 300 },
