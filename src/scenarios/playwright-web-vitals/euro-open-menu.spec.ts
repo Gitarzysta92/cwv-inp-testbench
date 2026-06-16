@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { writeDebugScreenshot } from './shared';
+import { startChromeTrace, writeDebugScreenshot } from './shared';
 import {
   defineEuroScenarioTest,
   findEuroMenuTrigger,
@@ -19,27 +19,36 @@ async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroSc
   await page.waitForTimeout(250);
   await writeDebugScreenshot(page, '02-menu-hover-target');
 
+  const trace = await startChromeTrace(page, '06-menu-interaction-trace');
+  let tracePath: string | undefined;
   const interactionStartedAt = Date.now();
-  await page.mouse.down();
-  await page.mouse.up();
-  await writeDebugScreenshot(page, '03-menu-click-sent');
+  try {
+    await page.mouse.down();
+    await page.mouse.up();
+    await writeDebugScreenshot(page, '03-menu-click-sent');
 
-  await page.waitForFunction(
-    () =>
-      /Laptopy|Telewizory|Smartfony|AGD|Komputery|Kategorie/i.test(document.body.innerText) ||
-      typeof (window as Window & {
-        __benchWebVitals?: { latest?: Record<string, { value: number }> };
-      }).__benchWebVitals?.latest?.['INP']?.value === 'number',
-    undefined,
-    { timeout: 7_500 },
-  ).catch(() => {});
-  await page.waitForTimeout(750);
+    await page.waitForFunction(
+      () =>
+        /Laptopy|Telewizory|Smartfony|AGD|Komputery|Kategorie/i.test(document.body.innerText) ||
+        typeof (window as Window & {
+          __benchWebVitals?: { latest?: Record<string, { value: number }> };
+        }).__benchWebVitals?.latest?.['INP']?.value === 'number',
+      undefined,
+      { timeout: 7_500 },
+    ).catch(() => {});
+    await page.waitForTimeout(750);
+  } finally {
+    tracePath = await trace.stop();
+  }
   await writeDebugScreenshot(page, '04-menu-after-wait');
 
   return {
     scenarioDurationMs: Date.now() - startedAt,
     interactionWallMs: Date.now() - interactionStartedAt,
     interactionLabel: `euro-open-menu:${candidate.label}`,
+    meta: {
+      chromeTracePath: tracePath ?? '',
+    },
   };
 }
 

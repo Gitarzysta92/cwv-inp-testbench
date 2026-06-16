@@ -481,6 +481,50 @@ export function writeDebugJson(label: string, data: unknown): string | undefined
   return outPath;
 }
 
+export async function startChromeTrace(
+  page: Page,
+  label: string,
+): Promise<{ stop: () => Promise<string | undefined> }> {
+  if (env('BENCH_CHROME_TRACE') !== '1') {
+    return { stop: async () => undefined };
+  }
+
+  const session = await page.context().newCDPSession(page);
+  const traceEvents: unknown[] = [];
+  session.on('Tracing.dataCollected', (event: { value?: unknown[] }) => {
+    traceEvents.push(...(event.value ?? []));
+  });
+
+  await session.send('Tracing.start', {
+    categories: [
+      'benchmark',
+      'blink.user_timing',
+      'cc',
+      'devtools.timeline',
+      'disabled-by-default-devtools.timeline',
+      'disabled-by-default-devtools.timeline.frame',
+      'disabled-by-default-latencyInfo',
+      'latencyInfo',
+      'loading',
+      'toplevel',
+      'v8',
+    ].join(','),
+    transferMode: 'ReportEvents',
+  });
+
+  return {
+    stop: async () => {
+      const complete = new Promise<void>((resolve) => {
+        session.once('Tracing.tracingComplete', () => resolve());
+      });
+      await session.send('Tracing.end');
+      await complete;
+      await session.detach().catch(() => {});
+      return writeDebugJson(label, { traceEvents });
+    },
+  };
+}
+
 export function writeInvocation(status: string, metrics?: BenchMetricsAttachment): void {
   const outPath = artifactPath();
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
