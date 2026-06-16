@@ -1,4 +1,5 @@
 import type { BenchRuntime } from '../bench-runtime';
+import { applyProcessEnv, browserCpuThrottleEnv } from '../cpu-throttle';
 import { upLocalStack } from '../tests/stack';
 
 export const localHeadfulRuntime: BenchRuntime = {
@@ -16,18 +17,34 @@ export const localHeadfulRuntime: BenchRuntime = {
     };
   },
   async start(input) {
-    const stack = await upLocalStack({
-      appUrl: input.profile.network.baseUrl,
-      headless: false,
-      windowSize: input.profile.device,
-    });
+    const restoreThrottleEnv = applyProcessEnv(
+      browserCpuThrottleEnv('BENCH_HEADFUL_CPU_THROTTLE_RATE'),
+    );
+    let stack: Awaited<ReturnType<typeof upLocalStack>>;
+
+    try {
+      stack = await upLocalStack({
+        appUrl: input.profile.network.baseUrl,
+        headless: false,
+        windowSize: input.profile.device,
+      });
+    } catch (err) {
+      restoreThrottleEnv();
+      throw err;
+    }
 
     return {
       apiUrl: stack.apiUrl,
       cdpUrl: stack.cdpUrl,
       appUrl: stack.appUrl,
       description: `${localHeadfulRuntime.id}:api=${stack.apiUrl},cdp=${stack.cdpUrl}`,
-      close: stack.stop,
+      close: async () => {
+        try {
+          await stack.stop();
+        } finally {
+          restoreThrottleEnv();
+        }
+      },
     };
   },
 };

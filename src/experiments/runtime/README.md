@@ -44,6 +44,17 @@ normal browser run instead of a CDP replay proxy run.
 Use `BENCH_REPLICATES=1` for smoke checks or the default `10` for the current
 methodology run.
 
+CPU throttling is applied through Chrome DevTools Protocol and is reported as
+`browserCpuThrottleRate` in observations:
+
+```bash
+BENCH_XVFB_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:docker-headful-xvfb:no-replay
+BENCH_HEADFUL_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:local-headful
+```
+
+Both aliases map to `BENCH_BROWSER_CPU_THROTTLE_RATE`; the generic variable can
+also be used directly when a runtime-specific alias is not needed.
+
 ### `euro-offline-replay`
 
 Euro.com.pl offline replay smoke test.

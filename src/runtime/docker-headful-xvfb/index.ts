@@ -1,5 +1,6 @@
 import type { BenchRuntime } from '../bench-runtime';
 import { runtimeContainerName } from '../bench-runtime';
+import { browserCpuThrottleEnv } from '../cpu-throttle';
 import { upDockerStack } from '../tests/stack';
 
 export const dockerHeadfulXvfbRuntime: BenchRuntime = {
@@ -21,9 +22,7 @@ export const dockerHeadfulXvfbRuntime: BenchRuntime = {
         BROWSER_HEADLESS: '0',
         XVFB_WIDTH: String(input.profile.device.width),
         XVFB_HEIGHT: String(input.profile.device.height),
-        ...(process.env['BENCH_XVFB_CPU_THROTTLE_RATE']
-          ? { BENCH_BROWSER_CPU_THROTTLE_RATE: process.env['BENCH_XVFB_CPU_THROTTLE_RATE'] }
-          : {}),
+        ...browserCpuThrottleEnv('BENCH_XVFB_CPU_THROTTLE_RATE'),
       },
     });
 
