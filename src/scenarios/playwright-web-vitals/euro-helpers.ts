@@ -5,11 +5,16 @@ import {
   connectPreparedPage,
   debugArtifactsMeta,
   env,
+  installPageDiagnostics,
   installWebVitals,
+  pageDiagnosticsMeta,
+  pageDiagnosticsMetrics,
   readBrowserMetrics,
   readWarmupResult,
+  syncBrowserRuntimeErrors,
   toBenchMetrics,
   warmupMetaValues,
+  writeDebugJson,
   writeInvocation,
   type ScenarioTiming,
 } from './shared';
@@ -460,6 +465,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
 
     const baseUrl = env('PLAYWRIGHT_BASE_URL', 'https://www.euro.com.pl/');
     const attached = await connectPreparedPage();
+    const diagnostics = await installPageDiagnostics(attached.page);
     const warmup = readWarmupResult();
 
     try {
@@ -467,12 +473,24 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
       await installWebVitals(attached.page);
       const timing = await scenario.exercise(attached.page, baseUrl);
       const snapshot = await readBrowserMetrics(attached.page);
+      await syncBrowserRuntimeErrors(attached.page, diagnostics);
       const { metrics, inpSource } = toBenchMetrics(snapshot, timing, warmup);
+      const diagnosticsDebugPath = writeDebugJson('05-page-diagnostics', {
+        consoleMessages: diagnostics.consoleMessages,
+        pageErrors: diagnostics.pageErrors,
+        browserRuntimeErrors: diagnostics.browserRuntimeErrors,
+        failedRequests: diagnostics.failedRequests,
+        httpErrorResponses: diagnostics.httpErrorResponses,
+        responses: diagnostics.responses,
+        resourceTimingSummary: snapshot.resourceTimingSummary,
+        resourceTimingEntries: snapshot.resourceTimingEntries,
+      });
 
       writeInvocation('passed', {
         scenarioId: scenario.id,
         metrics: {
           ...metrics,
+          ...pageDiagnosticsMetrics(diagnostics),
           ...(timing.metrics ?? {}),
         },
         meta: {
@@ -485,6 +503,10 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
           webVitalsLatestJson: JSON.stringify(snapshot.vitals),
           webVitalsHistoryJson: JSON.stringify(snapshot.history.slice(-12)),
           eventTimingTopJson: JSON.stringify(snapshot.eventTimingEntries.slice(0, 12)),
+          resourceTimingSummaryJson: JSON.stringify(snapshot.resourceTimingSummary),
+          resourceTimingTopJson: JSON.stringify(snapshot.resourceTimingEntries.slice(0, 120)),
+          diagnosticsDebugPath: diagnosticsDebugPath ?? '',
+          ...pageDiagnosticsMeta(diagnostics),
           ...debugArtifactsMeta(),
           ...(timing.meta ?? {}),
           ...warmupMetaValues(warmup),
@@ -494,11 +516,13 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
       expect(metrics['inpMs']).toBeGreaterThanOrEqual(0);
       expect(metrics['scenarioDurationMs']).toBeGreaterThan(0);
     } catch (err) {
+      await syncBrowserRuntimeErrors(attached.page, diagnostics);
       writeInvocation('failed', {
         scenarioId: scenario.id,
-        metrics: {},
+        metrics: pageDiagnosticsMetrics(diagnostics),
         meta: {
           error: err instanceof Error ? err.message : String(err),
+          ...pageDiagnosticsMeta(diagnostics),
         },
       });
       throw err;

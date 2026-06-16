@@ -1,6 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type ConsoleMessage,
+  type Page,
+  type Request,
+  type Response,
+} from 'playwright';
 
 export type VitalMetric = {
   value: number;
@@ -18,6 +26,8 @@ export type BrowserMetricSnapshot = {
   eventTimingMaxMs: number;
   eventTimingCount: number;
   eventTimingEntries: unknown[];
+  resourceTimingEntries: unknown[];
+  resourceTimingSummary: unknown[];
   browserEnvironment: Record<string, string | number | boolean>;
   navigationTiming: Record<string, string | number>;
 };
@@ -46,6 +56,59 @@ export type WarmupResult = {
   warmed: boolean;
   firstNavigation?: NavigationCacheStats;
   verificationNavigation?: NavigationCacheStats;
+};
+
+export type PageDiagnosticsCapture = {
+  consoleMessages: Array<{
+    type: string;
+    text: string;
+    elapsedMs: number;
+    url?: string;
+    lineNumber?: number;
+    columnNumber?: number;
+  }>;
+  pageErrors: Array<{
+    message: string;
+    stack?: string;
+    elapsedMs: number;
+  }>;
+  browserRuntimeErrors: Array<{
+    type: string;
+    at: number;
+    message: string;
+    filename?: string;
+    lineNumber?: number;
+    columnNumber?: number;
+    reasonType?: string;
+    reason?: string;
+    stack?: string;
+    state?: Record<string, string | number | boolean>;
+  }>;
+  failedRequests: Array<{
+    url: string;
+    method: string;
+    resourceType: string;
+    errorText: string;
+    elapsedMs: number;
+  }>;
+  httpErrorResponses: Array<{
+    url: string;
+    method: string;
+    resourceType: string;
+    status: number;
+    statusText: string;
+    fromServiceWorker: boolean;
+    elapsedMs: number;
+  }>;
+  responses: Array<{
+    url: string;
+    method: string;
+    resourceType: string;
+    status: number;
+    statusText: string;
+    fromServiceWorker: boolean;
+    elapsedMs: number;
+  }>;
 };
 
 const webVitalsAttributionPath = path.join(
@@ -151,6 +214,235 @@ function debugArtifactsDir(): string {
   return path.join(parsed.dir, `${parsed.name}-debug`);
 }
 
+function pushLimited<T>(rows: T[], row: T, limit: number): void {
+  rows.push(row);
+  if (rows.length > limit) {
+    rows.splice(0, rows.length - limit);
+  }
+}
+
+function elapsedSince(startedAt: number): number {
+  return roundMetric(Date.now() - startedAt);
+}
+
+function consoleEntry(
+  message: ConsoleMessage,
+  startedAt: number,
+): PageDiagnosticsCapture['consoleMessages'][number] {
+  const location = message.location();
+  return {
+    type: message.type(),
+    text: message.text().slice(0, 1_000),
+    elapsedMs: elapsedSince(startedAt),
+    url: location.url || undefined,
+    lineNumber: location.lineNumber || undefined,
+    columnNumber: location.columnNumber || undefined,
+  };
+}
+
+function requestEntry(
+  request: Request,
+): Omit<PageDiagnosticsCapture['failedRequests'][number], 'errorText' | 'elapsedMs'> {
+  return {
+    url: request.url(),
+    method: request.method(),
+    resourceType: request.resourceType(),
+  };
+}
+
+function responseEntry(
+  response: Response,
+  startedAt: number,
+): PageDiagnosticsCapture['responses'][number] {
+  const request = response.request();
+  return {
+    ...requestEntry(request),
+    status: response.status(),
+    statusText: response.statusText(),
+    fromServiceWorker: response.fromServiceWorker(),
+    elapsedMs: elapsedSince(startedAt),
+  };
+}
+
+export async function installPageDiagnostics(page: Page): Promise<PageDiagnosticsCapture> {
+  const startedAt = Date.now();
+  const diagnostics: PageDiagnosticsCapture = {
+    consoleMessages: [],
+    pageErrors: [],
+    browserRuntimeErrors: [],
+    failedRequests: [],
+    httpErrorResponses: [],
+    responses: [],
+  };
+
+  await page.addInitScript({
+    content: `(() => {
+  const round = (value) =>
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.round(value * 100) / 100
+      : 0;
+  const serializeValue = (value) => {
+    try {
+      if (value instanceof Error) {
+        return {
+          message: value.message || '',
+          stack: value.stack || '',
+          reasonType: 'Error',
+          reason: value.message || String(value),
+        };
+      }
+      return {
+        message: typeof value === 'string' ? value : String(value),
+        reasonType: value === null ? 'null' : typeof value,
+        reason: typeof value === 'string' ? value : JSON.stringify(value),
+      };
+    } catch {
+      return {
+        message: String(value),
+        reasonType: typeof value,
+        reason: String(value),
+      };
+    }
+  };
+  const state = () => {
+    const global = window;
+    const dataLayer = global.dataLayer;
+    const zowieKeys = Object.keys(global)
+      .filter((key) => /zowie|herochat|chat/i.test(key))
+      .slice(0, 8)
+      .join(',');
+    return {
+      url: location.href,
+      readyState: document.readyState,
+      hasDataLayer: Array.isArray(dataLayer),
+      dataLayerLength: Array.isArray(dataLayer) ? dataLayer.length : 0,
+      hasGoogleTagManager: !!global.google_tag_manager,
+      googleTagManagerKeys: global.google_tag_manager
+        ? Object.keys(global.google_tag_manager).slice(0, 8).join(',')
+        : '',
+      hasUcUi: !!global.UC_UI,
+      hasUsercentrics: !!global.Usercentrics || !!global.UC_UI,
+      zowieKeys,
+    };
+  };
+  const rows = [];
+  Object.defineProperty(window, '__benchRuntimeErrors', {
+    value: rows,
+    configurable: true,
+  });
+  const push = (row) => {
+    rows.push({
+      at: round(performance.now()),
+      ...row,
+      state: state(),
+    });
+    if (rows.length > 100) {
+      rows.splice(0, rows.length - 100);
+    }
+  };
+  window.addEventListener('error', (event) => {
+    const serialized = serializeValue(event.error || event.message);
+    push({
+      type: 'error',
+      message: serialized.message || event.message || '',
+      filename: event.filename || '',
+      lineNumber: event.lineno || 0,
+      columnNumber: event.colno || 0,
+      reasonType: serialized.reasonType || '',
+      reason: serialized.reason || '',
+      stack: serialized.stack || '',
+    });
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const serialized = serializeValue(event.reason);
+    push({
+      type: 'unhandledrejection',
+      message: serialized.message || '',
+      reasonType: serialized.reasonType || '',
+      reason: serialized.reason || '',
+      stack: serialized.stack || '',
+    });
+  });
+})();`,
+  });
+
+  page.on('console', (message) => {
+    pushLimited(diagnostics.consoleMessages, consoleEntry(message, startedAt), 300);
+  });
+  page.on('pageerror', (error) => {
+    pushLimited(
+      diagnostics.pageErrors,
+      {
+        message: error.message,
+        stack: error.stack,
+        elapsedMs: elapsedSince(startedAt),
+      },
+      100,
+    );
+  });
+  page.on('requestfailed', (request) => {
+    pushLimited(
+      diagnostics.failedRequests,
+      {
+        ...requestEntry(request),
+        errorText: request.failure()?.errorText ?? 'unknown',
+        elapsedMs: elapsedSince(startedAt),
+      },
+      300,
+    );
+  });
+  page.on('response', (response) => {
+    const entry = responseEntry(response, startedAt);
+    pushLimited(diagnostics.responses, entry, 1_000);
+    if (entry.status >= 400) {
+      pushLimited(diagnostics.httpErrorResponses, entry, 300);
+    }
+  });
+
+  return diagnostics;
+}
+
+export async function syncBrowserRuntimeErrors(
+  page: Page,
+  diagnostics: PageDiagnosticsCapture,
+): Promise<void> {
+  diagnostics.browserRuntimeErrors = await page
+    .evaluate(() => {
+      return ((window as unknown as {
+        __benchRuntimeErrors?: PageDiagnosticsCapture['browserRuntimeErrors'];
+      }).__benchRuntimeErrors ?? []);
+    })
+    .catch(() => diagnostics.browserRuntimeErrors);
+}
+
+export function pageDiagnosticsMetrics(
+  diagnostics: PageDiagnosticsCapture,
+): Record<string, number> {
+  return {
+    consoleMessages: diagnostics.consoleMessages.length,
+    consoleErrors: diagnostics.consoleMessages.filter((row) => row.type === 'error').length,
+    consoleWarnings: diagnostics.consoleMessages.filter((row) => row.type === 'warning').length,
+    pageErrors: diagnostics.pageErrors.length,
+    browserRuntimeErrors: diagnostics.browserRuntimeErrors.length,
+    networkFailedRequests: diagnostics.failedRequests.length,
+    networkHttpErrorResponses: diagnostics.httpErrorResponses.length,
+    networkResponses: diagnostics.responses.length,
+  };
+}
+
+export function pageDiagnosticsMeta(
+  diagnostics: PageDiagnosticsCapture,
+): Record<string, string | number | boolean> {
+  return {
+    consoleMessagesJson: JSON.stringify(diagnostics.consoleMessages),
+    pageErrorsJson: JSON.stringify(diagnostics.pageErrors),
+    browserRuntimeErrorsJson: JSON.stringify(diagnostics.browserRuntimeErrors),
+    networkFailedRequestsJson: JSON.stringify(diagnostics.failedRequests),
+    networkHttpErrorResponsesJson: JSON.stringify(diagnostics.httpErrorResponses),
+    networkResponsesJson: JSON.stringify(diagnostics.responses),
+  };
+}
+
 export function debugArtifactsMeta(): Record<string, string | boolean> {
   return env('BENCH_DEBUG_ARTIFACTS') === '1'
     ? {
@@ -174,6 +466,18 @@ export async function writeDebugScreenshot(
   fs.mkdirSync(dir, { recursive: true });
   const outPath = path.join(dir, `${safeArtifactName(label)}.png`);
   await page.screenshot({ path: outPath, fullPage: false }).catch(() => undefined);
+  return outPath;
+}
+
+export function writeDebugJson(label: string, data: unknown): string | undefined {
+  if (env('BENCH_DEBUG_ARTIFACTS') !== '1') {
+    return undefined;
+  }
+
+  const dir = debugArtifactsDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const outPath = path.join(dir, `${safeArtifactName(label)}.json`);
+  fs.writeFileSync(outPath, JSON.stringify(data, null, 2), 'utf8');
   return outPath;
 }
 
@@ -407,6 +711,78 @@ export async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnaps
           duration: round(navigation.duration),
         }
       : {};
+    const resources = performance
+      .getEntriesByType('resource')
+      .map((entry) => {
+        const resource = entry as PerformanceResourceTiming & {
+          responseStatus?: number;
+          renderBlockingStatus?: string;
+        };
+        let host = '';
+        let pathname = '';
+        try {
+          const url = new URL(resource.name);
+          host = url.host;
+          pathname = url.pathname;
+        } catch {
+          pathname = resource.name;
+        }
+        return {
+          name: resource.name,
+          host,
+          pathname,
+          initiatorType: resource.initiatorType || '',
+          startTime: round(resource.startTime),
+          responseEnd: round(resource.responseEnd),
+          duration: round(resource.duration),
+          transferSize: Math.round(resource.transferSize || 0),
+          encodedBodySize: Math.round(resource.encodedBodySize || 0),
+          decodedBodySize: Math.round(resource.decodedBodySize || 0),
+          responseStatus: Number(resource.responseStatus || 0),
+          renderBlockingStatus: resource.renderBlockingStatus || '',
+        };
+      });
+    const summaryByKey = new Map<
+      string,
+      {
+        host: string;
+        initiatorType: string;
+        count: number;
+        transferSize: number;
+        encodedBodySize: number;
+        decodedBodySize: number;
+        duration: number;
+        httpErrors: number;
+      }
+    >();
+    for (const resource of resources) {
+      const key = `${resource.host}\t${resource.initiatorType}`;
+      const existing =
+        summaryByKey.get(key) ??
+        {
+          host: resource.host,
+          initiatorType: resource.initiatorType,
+          count: 0,
+          transferSize: 0,
+          encodedBodySize: 0,
+          decodedBodySize: 0,
+          duration: 0,
+          httpErrors: 0,
+        };
+      existing.count += 1;
+      existing.transferSize += resource.transferSize;
+      existing.encodedBodySize += resource.encodedBodySize;
+      existing.decodedBodySize += resource.decodedBodySize;
+      existing.duration += resource.duration;
+      existing.httpErrors += resource.responseStatus >= 400 ? 1 : 0;
+      summaryByKey.set(key, existing);
+    }
+    const resourceTimingSummary = Array.from(summaryByKey.values())
+      .map((row) => ({
+        ...row,
+        duration: round(row.duration),
+      }))
+      .sort((a, b) => b.count - a.count || b.transferSize - a.transferSize);
 
     return {
       vitals: state?.latest ?? {},
@@ -414,6 +790,8 @@ export async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnaps
       eventTimingMaxMs: state?.eventTimingMaxMs ?? 0,
       eventTimingCount: state?.eventTimingCount ?? 0,
       eventTimingEntries: state?.eventTimingEntries ?? [],
+      resourceTimingEntries: resources.slice(0, 500),
+      resourceTimingSummary,
       browserEnvironment: {
         userAgent: navigator.userAgent,
         webdriver: !!navigator.webdriver,
