@@ -70,6 +70,19 @@ export const euroMenuMethodologyProfiles: Profile[] = [
   }),
   euroLiveProfile({
     ...profileBase,
+    id: 'euro-menu-baseline-scripts-blocked',
+    label: 'Euro menu - baseline with external scripts blocked',
+    role: 'measurement',
+    warmup: 'warm_assets',
+    network: {
+      ...profileBase.network,
+      blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
+      browserCache: 'default',
+      runtimeNetworkCache: 'default',
+    },
+  }),
+  euroLiveProfile({
+    ...profileBase,
     id: 'euro-menu-browser-cache-cold',
     label: 'Euro menu - browser cache cold',
     role: 'measurement',
@@ -90,19 +103,6 @@ export const euroMenuMethodologyProfiles: Profile[] = [
       ...profileBase.network,
       browserCache: 'disabled',
       runtimeNetworkCache: 'disabled',
-    },
-  }),
-  euroLiveProfile({
-    ...profileBase,
-    id: 'euro-menu-external-scripts-blocked-warm',
-    label: 'Euro menu - external scripts blocked with warmed cache',
-    role: 'measurement',
-    warmup: 'warm_assets',
-    network: {
-      ...profileBase.network,
-      blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
-      browserCache: 'default',
-      runtimeNetworkCache: 'default',
     },
   }),
 ];

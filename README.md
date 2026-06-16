@@ -140,9 +140,9 @@ Aktualny eksperyment Euro porownuje:
 | Profil | Cel |
 |---|---|
 | `baseline` | warmed browser cache + runtime cache |
+| `euro-menu-baseline-scripts-blocked` | baseline warm cache + blokowanie external scripts |
 | `euro-menu-browser-cache-cold` | zimny browser cache |
 | `euro-menu-browser-cache-disabled` | browser cache disabled + runtime network cache disabled |
-| `euro-menu-external-scripts-blocked-warm` | warmed cache + blokowanie external scripts |
 
 Glowna metryka metodologii:
 
