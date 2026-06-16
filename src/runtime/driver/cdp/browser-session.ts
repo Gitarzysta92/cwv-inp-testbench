@@ -54,6 +54,9 @@ async function navigate(cdp: CdpConnection, url: string): Promise<void> {
 
 function disabledNetworkStats(reason?: string): ObservationNetworkStats {
   return {
+    policy: {
+      blockedByPolicy: 0,
+    },
     runtimeCache: {
       enabled: false,
       mode: reason ? 'unavailable' : 'disabled',
@@ -84,12 +87,21 @@ function disabledNetworkStats(reason?: string): ObservationNetworkStats {
 function networkStatsFromCache(
   recorder: ResponseCacheRecorder | undefined,
   replay: ResponseCacheReplay | undefined,
+  policyHandle?: NetworkPolicyHandle,
 ): ObservationNetworkStats {
   if (!recorder || !replay) {
-    return disabledNetworkStats();
+    return {
+      ...disabledNetworkStats(),
+      policy: {
+        blockedByPolicy: policyHandle?.stats.blockedByPolicy ?? 0,
+      },
+    };
   }
 
   return {
+    policy: {
+      blockedByPolicy: policyHandle?.stats.blockedByPolicy ?? 0,
+    },
     runtimeCache: {
       enabled: true,
       mode: 'replay',
@@ -135,7 +147,7 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
       return networkStats;
     }
     released = true;
-    networkStats = networkStatsFromCache(runtimeCacheRecorder, runtimeCacheReplay);
+    networkStats = networkStatsFromCache(runtimeCacheRecorder, runtimeCacheReplay, policyHandle);
     await runtimeCacheReplay?.detach().catch(() => {});
     policyHandle?.detach();
     runtimeCacheRecorder?.detach();
@@ -183,7 +195,7 @@ export async function beginBrowserSession(options: BrowserSessionOptions): Promi
       runtimeCacheReplay = await enableResponseCacheReplay(cdp, runtimeCacheRecorder.cache, {
         missPolicy: options.profile.network.runtimeCacheMissPolicy ?? 'block',
       });
-      networkStats = networkStatsFromCache(runtimeCacheRecorder, runtimeCacheReplay);
+      networkStats = networkStatsFromCache(runtimeCacheRecorder, runtimeCacheReplay, policyHandle);
     }
 
     return {

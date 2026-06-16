@@ -114,7 +114,7 @@ export const euroMenuMethodologyLab: LabDefinition = {
       appVersion: 'dev',
     },
     methodology: {
-      replicates: 5,
+      replicates: 10,
       schedule: 'interleave',
       metric: 'inpMs',
       percentiles: [50, 75, 95],

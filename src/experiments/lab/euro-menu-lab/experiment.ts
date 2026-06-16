@@ -3,7 +3,7 @@
  * Euro hamburger menu — full methodology lab with isolated Docker runtime.
  *
  * Same 4 cache/network profiles and gate as euro-cwv-lab, but only
- * scenario-euro-open-menu (4 profiles × 5 replicates = 20 steps).
+ * scenario-euro-open-menu (4 profiles × 10 replicates = 40 steps).
  *
  *   npm run bench:euro:menu
  *   BENCH_REPLICATES=100 npm run bench:euro:menu

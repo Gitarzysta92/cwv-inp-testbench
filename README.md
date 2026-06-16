@@ -129,6 +129,10 @@ ale podstawowy model oceny to mediana/srednia/min/max/delta po kwalifikacji.
 nawigacja, oczekiwanie na load, czyszczenie overlayow, akcja uzytkownika i
 kontrole po akcji. To nie jest samo INP.
 
+`interactionWallMs` to czas od rozpoczecia mierzonej akcji uzytkownika do
+zakonczenia kontroli po tej akcji. Dla hamburgera obejmuje klikniecie, wykrycie
+menu albo odczyt INP oraz stabilizacyjny wait scenariusza.
+
 ## Profile Euro
 
 Aktualny eksperyment Euro porownuje:
@@ -182,7 +186,7 @@ sciezke.
 
 Sesja: `e8bae544-a99c-4657-9be8-8548f91a25f4`  
 Scenariusz: `scenario-euro-open-menu`  
-Replikacje: `5` na profil
+Replikacje: `10` na profil
 
 | Profil | INP median | INP mean | Out-of-range | INP min | INP max | INP delta |
 |---|---:|---:|---:|---:|---:|---:|

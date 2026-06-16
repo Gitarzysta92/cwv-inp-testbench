@@ -59,6 +59,9 @@ const CLIENT_ID = euroMenuMethodologyLab.lab.client;
 function buildNetworkStats(row: RawRow): ObservationNetworkStats {
   const enabled = row.runtimeCacheEnabled;
   return {
+    policy: {
+      blockedByPolicy: 0,
+    },
     runtimeCache: {
       enabled,
       mode: enabled ? 'replay' : 'disabled',
@@ -108,6 +111,8 @@ export function buildObservation(
     metrics: {
       inpMs: row.inpMs,
       wallClockMs: row.wallClockMs,
+      ...(row.auxMs != null ? { interactionWallMs: row.auxMs } : {}),
+      networkBlockedByPolicy: network.policy.blockedByPolicy,
       runtimeCacheEnabled: network.runtimeCache.enabled ? 1 : 0,
       runtimeCacheReplayTotalPaused: row.replayTotal,
       runtimeCacheReplayServedFromCache: row.replayServed,

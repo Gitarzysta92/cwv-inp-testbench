@@ -293,7 +293,6 @@ export function toBenchMetrics(
   const metrics: Record<string, number> = {
     wallClockMs: roundMetric(timing.wallClockMs),
     interactionWallMs: roundMetric(timing.interactionWallMs),
-    searchTypingWallMs: roundMetric(timing.interactionWallMs),
     eventTimingMaxMs: roundMetric(snapshot.eventTimingMaxMs),
     eventTimingCount: snapshot.eventTimingCount,
     ...warmupMetricValues(warmup),

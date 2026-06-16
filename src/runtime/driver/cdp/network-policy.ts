@@ -18,6 +18,9 @@ function mockBodyForUrl(url: string): string | undefined {
 }
 
 export type NetworkPolicyHandle = {
+  stats: {
+    blockedByPolicy: number;
+  };
   detach: () => void;
 };
 
@@ -26,9 +29,29 @@ export function applyNetworkPolicy(
   cdp: CdpConnection,
   policy: ResolvedNetworkPolicy,
 ): NetworkPolicyHandle {
+  const stats = {
+    blockedByPolicy: 0,
+  };
+
+  const onLoadingFailed = (params: Record<string, unknown>): void => {
+    if (!policy.blockScripts.length) {
+      return;
+    }
+    const blockedReason = params['blockedReason'];
+    const errorText = String(params['errorText'] ?? '');
+    if (blockedReason === 'inspector' || errorText.includes('ERR_BLOCKED_BY_CLIENT')) {
+      stats.blockedByPolicy += 1;
+    }
+  };
+
+  cdp.on('Network.loadingFailed', onLoadingFailed);
+
   if (!policy.mockApi) {
     return {
-      detach: () => {},
+      stats,
+      detach: () => {
+        cdp.off('Network.loadingFailed', onLoadingFailed);
+      },
     };
   }
 
@@ -60,7 +83,9 @@ export function applyNetworkPolicy(
   cdp.on('Fetch.requestPaused', onFetchPaused);
 
   return {
+    stats,
     detach: () => {
+      cdp.off('Network.loadingFailed', onLoadingFailed);
       cdp.off('Fetch.requestPaused', onFetchPaused);
     },
   };

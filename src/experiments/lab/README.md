@@ -16,7 +16,7 @@ Smaller probes may inline a minimal `LabDefinition` in `experiment.ts` and impor
 
 ### `euro-cwv-lab`
 
-Main Euro.com.pl study: 4 cache/network profiles × 14 user scenarios × 5 replicates, isolated Docker runtime per instruction.
+Main Euro.com.pl study: 4 cache/network profiles × 14 user scenarios × 10 replicates, isolated Docker runtime per instruction.
 
 ```bash
 npm run bench:euro

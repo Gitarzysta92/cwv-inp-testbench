@@ -48,6 +48,7 @@ function addNetworkStats(observation: Observation, network: ObservationNetworkSt
   }
 
   observation.meta.network = network;
+  observation.metrics['networkBlockedByPolicy'] = network.policy.blockedByPolicy;
   const runtimeCache = network.runtimeCache;
   Object.assign(observation.metrics, {
     runtimeCacheEnabled: runtimeCache.enabled ? 1 : 0,

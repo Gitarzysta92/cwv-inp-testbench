@@ -116,6 +116,9 @@ export type SessionStep = ExecutionStep & {
 export type ObservationStatus = 'ok' | 'missing_metric' | 'failed' | 'not_implemented';
 
 export type ObservationNetworkStats = {
+  policy: {
+    blockedByPolicy: number;
+  };
   runtimeCache: {
     enabled: boolean;
     mode: 'replay' | 'disabled' | 'unavailable';
