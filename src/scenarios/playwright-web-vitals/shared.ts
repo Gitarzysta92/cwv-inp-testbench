@@ -58,6 +58,14 @@ export type WarmupResult = {
   verificationNavigation?: NavigationCacheStats;
 };
 
+export type PendingRequestEntry = {
+  url: string;
+  method: string;
+  resourceType: string;
+  elapsedMs: number;
+  pendingMs: number;
+};
+
 export type PageDiagnosticsCapture = {
   consoleMessages: Array<{
     type: string;
@@ -109,6 +117,14 @@ export type PageDiagnosticsCapture = {
     fromServiceWorker: boolean;
     elapsedMs: number;
   }>;
+  pendingRequests: PendingRequestEntry[];
+  pendingRequestSnapshots: Array<{
+    label: string;
+    elapsedMs: number;
+    pendingRequests: PendingRequestEntry[];
+  }>;
+  refreshPendingRequests: () => void;
+  capturePendingRequests: (label: string) => void;
 };
 
 const webVitalsAttributionPath = path.join(
@@ -271,6 +287,7 @@ function responseEntry(
 
 export async function installPageDiagnostics(page: Page): Promise<PageDiagnosticsCapture> {
   const startedAt = Date.now();
+  const activeRequests = new Map<Request, Omit<PendingRequestEntry, 'pendingMs'>>();
   const diagnostics: PageDiagnosticsCapture = {
     consoleMessages: [],
     pageErrors: [],
@@ -278,7 +295,34 @@ export async function installPageDiagnostics(page: Page): Promise<PageDiagnostic
     failedRequests: [],
     httpErrorResponses: [],
     responses: [],
+    pendingRequests: [],
+    pendingRequestSnapshots: [],
+    refreshPendingRequests: () => {},
+    capturePendingRequests: () => {},
   };
+  const refreshPendingRequests = () => {
+    const elapsedMs = elapsedSince(startedAt);
+    diagnostics.pendingRequests = Array.from(activeRequests.values())
+      .map((request) => ({
+        ...request,
+        pendingMs: roundMetric(elapsedMs - request.elapsedMs),
+      }))
+      .sort((a, b) => b.pendingMs - a.pendingMs);
+  };
+  const capturePendingRequests = (label: string) => {
+    refreshPendingRequests();
+    pushLimited(
+      diagnostics.pendingRequestSnapshots,
+      {
+        label,
+        elapsedMs: elapsedSince(startedAt),
+        pendingRequests: diagnostics.pendingRequests.slice(0, 100),
+      },
+      50,
+    );
+  };
+  diagnostics.refreshPendingRequests = refreshPendingRequests;
+  diagnostics.capturePendingRequests = capturePendingRequests;
 
   await page.addInitScript({
     content: `(() => {
@@ -385,6 +429,17 @@ export async function installPageDiagnostics(page: Page): Promise<PageDiagnostic
       100,
     );
   });
+  page.on('request', (request) => {
+    activeRequests.set(request, {
+      ...requestEntry(request),
+      elapsedMs: elapsedSince(startedAt),
+    });
+    refreshPendingRequests();
+  });
+  page.on('requestfinished', (request) => {
+    activeRequests.delete(request);
+    refreshPendingRequests();
+  });
   page.on('requestfailed', (request) => {
     pushLimited(
       diagnostics.failedRequests,
@@ -395,6 +450,8 @@ export async function installPageDiagnostics(page: Page): Promise<PageDiagnostic
       },
       300,
     );
+    activeRequests.delete(request);
+    refreshPendingRequests();
   });
   page.on('response', (response) => {
     const entry = responseEntry(response, startedAt);
@@ -423,6 +480,7 @@ export async function syncBrowserRuntimeErrors(
 export function pageDiagnosticsMetrics(
   diagnostics: PageDiagnosticsCapture,
 ): Record<string, number> {
+  diagnostics.refreshPendingRequests();
   return {
     consoleMessages: diagnostics.consoleMessages.length,
     consoleErrors: diagnostics.consoleMessages.filter((row) => row.type === 'error').length,
@@ -432,12 +490,15 @@ export function pageDiagnosticsMetrics(
     networkFailedRequests: diagnostics.failedRequests.length,
     networkHttpErrorResponses: diagnostics.httpErrorResponses.length,
     networkResponses: diagnostics.responses.length,
+    networkPendingRequests: diagnostics.pendingRequests.length,
+    networkPendingRequestSnapshots: diagnostics.pendingRequestSnapshots.length,
   };
 }
 
 export function pageDiagnosticsMeta(
   diagnostics: PageDiagnosticsCapture,
 ): Record<string, string | number | boolean> {
+  diagnostics.refreshPendingRequests();
   return {
     consoleMessagesJson: JSON.stringify(diagnostics.consoleMessages),
     pageErrorsJson: JSON.stringify(diagnostics.pageErrors),
@@ -445,6 +506,8 @@ export function pageDiagnosticsMeta(
     networkFailedRequestsJson: JSON.stringify(diagnostics.failedRequests),
     networkHttpErrorResponsesJson: JSON.stringify(diagnostics.httpErrorResponses),
     networkResponsesJson: JSON.stringify(diagnostics.responses),
+    networkPendingRequestsJson: JSON.stringify(diagnostics.pendingRequests),
+    networkPendingRequestSnapshotsJson: JSON.stringify(diagnostics.pendingRequestSnapshots),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   startChromeTrace,
   startCpuProfile,
   writeDebugScreenshot,
+  type PageDiagnosticsCapture,
 } from './shared';
 import {
   defineEuroScenarioTest,
@@ -15,9 +16,13 @@ import {
   type EuroScenarioResult,
 } from './euro-helpers';
 
-async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroScenarioResult> {
+async function exerciseEuroOpenMenu(
+  page: Page,
+  baseUrl: string,
+  diagnostics?: PageDiagnosticsCapture,
+): Promise<EuroScenarioResult> {
   const startedAt = Date.now();
-  await gotoEuroHome(page, baseUrl);
+  await gotoEuroHome(page, baseUrl, diagnostics);
   await waitForPageAge(page, 2_000);
   const browserSystemPath = await captureBrowserSystemInfo(page, '00-browser-system');
   const rafCadenceBeforePath = await captureRafCadence(page, '00-raf-cadence-before-click');

@@ -17,6 +17,7 @@ import {
   warmupMetaValues,
   writeDebugJson,
   writeInvocation,
+  type PageDiagnosticsCapture,
   type ScenarioTiming,
 } from './shared';
 
@@ -42,7 +43,11 @@ export type EuroScenarioResult = ScenarioTiming & {
 export type EuroScenarioDefinition = {
   id: string;
   title: string;
-  exercise: (page: Page, baseUrl: string) => Promise<EuroScenarioResult>;
+  exercise: (
+    page: Page,
+    baseUrl: string,
+    diagnostics?: PageDiagnosticsCapture,
+  ) => Promise<EuroScenarioResult>;
 };
 
 export function pageUrl(baseUrl: string, path: string): string {
@@ -248,9 +253,16 @@ export async function maybeClickByPattern(
   }
 }
 
-export async function gotoEuroHome(page: Page, baseUrl: string): Promise<void> {
+export async function gotoEuroHome(
+  page: Page,
+  baseUrl: string,
+  diagnostics?: PageDiagnosticsCapture,
+): Promise<void> {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-  await page.waitForLoadState('load', { timeout: 20_000 }).catch(() => {});
+  await page
+    .waitForLoadState('load', { timeout: 20_000 })
+    .then(() => diagnostics?.capturePendingRequests('home-load-complete'))
+    .catch(() => diagnostics?.capturePendingRequests('home-load-timeout'));
   await page.waitForTimeout(1_000);
   await clearConsentOverlay(page);
   await assertNotBlocked(page, 'home navigation');
@@ -472,7 +484,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
     try {
       assertRuntimeCacheWarmup(warmup);
       await installWebVitals(attached.page);
-      const timing = await scenario.exercise(attached.page, baseUrl);
+      const timing = await scenario.exercise(attached.page, baseUrl, diagnostics);
       await flushWebVitalsInp(attached.page);
       const snapshot = await readBrowserMetrics(attached.page);
       await syncBrowserRuntimeErrors(attached.page, diagnostics);
