@@ -7,6 +7,13 @@ function toBlockedUrlPattern(glob: string): string {
   return glob.replace(/\*\*/g, '*').replace(/^\//, '');
 }
 
+function globToRegExp(glob: string): RegExp {
+  const escaped = glob
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`);
+}
+
 function mockBodyForUrl(url: string): string | undefined {
   if (url.includes('/api/items')) {
     return catalogItemsBody;
@@ -41,6 +48,7 @@ export function applyNetworkPolicy(
     blockedRequests: [] as NetworkPolicyHandle['stats']['blockedRequests'],
   };
   const requests = new Map<string, { url: string; method?: string; resourceType?: string }>();
+  const blockMatchers = policy.blockScripts.map((pattern) => globToRegExp(toBlockedUrlPattern(pattern)));
 
   const onRequestWillBeSent = (params: Record<string, unknown>): void => {
     const requestId = params['requestId'] as string | undefined;
@@ -82,6 +90,49 @@ export function applyNetworkPolicy(
   cdp.on('Network.loadingFailed', onLoadingFailed);
 
   if (!policy.mockApi) {
+    if (policy.blockScriptsMode === 'empty-response' && policy.blockScripts.length) {
+      const onFetchPaused = async (params: Record<string, unknown>): Promise<void> => {
+        const requestId = params['requestId'] as string;
+        const request = params['request'] as { method?: string; url?: string } | undefined;
+        const resourceType = params['resourceType'] as string | undefined;
+        const url = request?.url ?? '';
+
+        try {
+          if (resourceType === 'Script' && blockMatchers.some((matcher) => matcher.test(url))) {
+            stats.blockedByPolicy += 1;
+            stats.blockedRequests.push({
+              url,
+              ...(request?.method ? { method: request.method } : {}),
+              resourceType,
+              blockedReason: 'empty-response',
+            });
+            await cdp.send('Fetch.fulfillRequest', {
+              requestId,
+              responseCode: 200,
+              responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
+              body: '',
+            });
+            return;
+          }
+
+          await cdp.send('Fetch.continueRequest', { requestId });
+        } catch {
+          /* connection may be closing */
+        }
+      };
+
+      cdp.on('Fetch.requestPaused', onFetchPaused);
+
+      return {
+        stats,
+        detach: () => {
+          cdp.off('Network.requestWillBeSent', onRequestWillBeSent);
+          cdp.off('Network.loadingFailed', onLoadingFailed);
+          cdp.off('Fetch.requestPaused', onFetchPaused);
+        },
+      };
+    }
+
     return {
       stats,
       detach: () => {
@@ -94,8 +145,30 @@ export function applyNetworkPolicy(
   const onFetchPaused = async (params: Record<string, unknown>): Promise<void> => {
     try {
       const requestId = params['requestId'] as string;
-      const request = params['request'] as { url?: string } | undefined;
+      const request = params['request'] as { method?: string; url?: string } | undefined;
+      const resourceType = params['resourceType'] as string | undefined;
       const url = request?.url ?? '';
+
+      if (
+        policy.blockScriptsMode === 'empty-response' &&
+        resourceType === 'Script' &&
+        blockMatchers.some((matcher) => matcher.test(url))
+      ) {
+        stats.blockedByPolicy += 1;
+        stats.blockedRequests.push({
+          url,
+          ...(request?.method ? { method: request.method } : {}),
+          resourceType,
+          blockedReason: 'empty-response',
+        });
+        await cdp.send('Fetch.fulfillRequest', {
+          requestId,
+          responseCode: 200,
+          responseHeaders: [{ name: 'Content-Type', value: 'application/javascript; charset=utf-8' }],
+          body: '',
+        });
+        return;
+      }
 
       if (policy.mockApi) {
         const body = mockBodyForUrl(url);
@@ -131,16 +204,22 @@ export function applyNetworkPolicy(
 export async function enableNetworkPolicy(cdp: CdpConnection, policy: ResolvedNetworkPolicy): Promise<void> {
   await cdp.send('Network.enable');
 
-  if (policy.blockScripts.length) {
+  if (policy.blockScripts.length && policy.blockScriptsMode === 'abort') {
     await cdp.send('Network.setBlockedURLs', {
       urls: policy.blockScripts.map(toBlockedUrlPattern),
     });
   }
 
-  if (policy.mockApi) {
+  if (policy.mockApi || (policy.blockScripts.length && policy.blockScriptsMode === 'empty-response')) {
     await cdp.send('Fetch.enable', {
       handleAuthRequests: false,
-      patterns: [{ urlPattern: '*', requestStage: 'Request' }],
+      patterns: policy.mockApi
+        ? [{ urlPattern: '*', requestStage: 'Request' }]
+        : policy.blockScripts.map((pattern) => ({
+            urlPattern: toBlockedUrlPattern(pattern),
+            resourceType: 'Script',
+            requestStage: 'Request',
+          })),
     });
   }
 }
@@ -157,10 +236,10 @@ export async function applyDeviceProfile(cdp: CdpConnection, profile: Profile): 
 }
 
 export async function disableNetworkPolicy(cdp: CdpConnection, policy: ResolvedNetworkPolicy): Promise<void> {
-  if (policy.mockApi) {
+  if (policy.mockApi || (policy.blockScripts.length && policy.blockScriptsMode === 'empty-response')) {
     await cdp.send('Fetch.disable').catch(() => {});
   }
-  if (policy.blockScripts.length) {
+  if (policy.blockScripts.length && policy.blockScriptsMode === 'abort') {
     await cdp.send('Network.setBlockedURLs', { urls: [] }).catch(() => {});
   }
   await cdp.send('Network.disable').catch(() => {});

@@ -249,6 +249,14 @@ export async function gotoEuroHome(page: Page, baseUrl: string): Promise<void> {
   await assertNotBlocked(page, 'home navigation');
 }
 
+export async function waitForPageAge(page: Page, minAgeMs: number): Promise<void> {
+  await page.waitForFunction(
+    (ageMs) => performance.now() >= ageMs,
+    minAgeMs,
+    { timeout: Math.max(1_000, minAgeMs + 1_000) },
+  ).catch(() => {});
+}
+
 export async function gotoEuroHomeSection(
   page: Page,
   baseUrl: string,
@@ -471,6 +479,11 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
           browserConnectMode: env('BENCH_BROWSER_CONNECT_MODE', 'launch'),
           appBaseUrl: baseUrl,
           interactionLabel: timing.interactionLabel ?? scenario.id,
+          browserEnvironmentJson: JSON.stringify(snapshot.browserEnvironment),
+          navigationTimingJson: JSON.stringify(snapshot.navigationTiming),
+          webVitalsLatestJson: JSON.stringify(snapshot.vitals),
+          webVitalsHistoryJson: JSON.stringify(snapshot.history.slice(-12)),
+          eventTimingTopJson: JSON.stringify(snapshot.eventTimingEntries.slice(0, 12)),
           ...(timing.meta ?? {}),
           ...warmupMetaValues(warmup),
         },

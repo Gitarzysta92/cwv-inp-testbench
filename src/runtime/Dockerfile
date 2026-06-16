@@ -1,8 +1,8 @@
 # Single runtime container: Chromium CDP + runtime driver API (live app target).
-FROM mcr.microsoft.com/playwright:v1.59.1-noble
+FROM mcr.microsoft.com/playwright:v1.61.0-noble
 
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends curl socat \
+RUN apt-get update && apt-get install -y --no-install-recommends curl openbox socat \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

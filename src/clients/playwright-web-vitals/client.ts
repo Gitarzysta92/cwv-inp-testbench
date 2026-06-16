@@ -31,6 +31,7 @@ function readObservationFromArtifact(
   let metrics: Record<string, number> = {};
   let inpSource = catalog.inpSource;
   let obsStatus = status;
+  let diagnostics: Record<string, string | number | boolean> | undefined;
 
   if (fs.existsSync(artifactPath)) {
     const invocation = JSON.parse(
@@ -44,6 +45,7 @@ function readObservationFromArtifact(
       if (row.metrics.meta?.['inpSource'] && typeof row.metrics.meta['inpSource'] === 'string') {
         inpSource = row.metrics.meta['inpSource'];
       }
+      diagnostics = row.metrics.meta;
       if (row.status !== 'passed') {
         obsStatus = 'failed';
       } else if (typeof metrics[primaryMetric] !== 'number') {
@@ -76,6 +78,7 @@ function readObservationFromArtifact(
       primaryMetric,
       inpSource,
       error,
+      diagnostics,
     },
     timestamp: new Date().toISOString(),
   };

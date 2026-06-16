@@ -3,16 +3,22 @@ import {
   defineEuroScenarioTest,
   findEuroMenuTrigger,
   gotoEuroHome,
+  waitForPageAge,
   type EuroScenarioResult,
 } from './euro-helpers';
 
 async function exerciseEuroOpenMenu(page: Page, baseUrl: string): Promise<EuroScenarioResult> {
   const startedAt = Date.now();
   await gotoEuroHome(page, baseUrl);
+  await waitForPageAge(page, 2_000);
 
   const candidate = await findEuroMenuTrigger(page);
+  await page.mouse.move(candidate.x, candidate.y);
+  await page.waitForTimeout(250);
+
   const interactionStartedAt = Date.now();
-  await page.mouse.click(candidate.x, candidate.y);
+  await page.mouse.down();
+  await page.mouse.up();
 
   await page.waitForFunction(
     () =>

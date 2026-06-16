@@ -6,12 +6,20 @@ export type VitalMetric = {
   value: number;
   delta?: number;
   rating?: string;
+  id?: string;
+  navigationType?: string;
+  entries?: unknown[];
+  attribution?: unknown;
 };
 
 export type BrowserMetricSnapshot = {
   vitals: Record<string, VitalMetric>;
+  history: VitalMetric[];
   eventTimingMaxMs: number;
   eventTimingCount: number;
+  eventTimingEntries: unknown[];
+  browserEnvironment: Record<string, string | number | boolean>;
+  navigationTiming: Record<string, string | number>;
 };
 
 export type ScenarioTiming = {
@@ -40,10 +48,13 @@ export type WarmupResult = {
   verificationNavigation?: NavigationCacheStats;
 };
 
-const webVitalsPath = path.join(
+const webVitalsAttributionPath = path.join(
   process.cwd(),
-  'node_modules/web-vitals/dist/web-vitals.iife.js',
+  'node_modules/web-vitals/dist/web-vitals.attribution.iife.js',
 );
+const webVitalsPath = fs.existsSync(webVitalsAttributionPath)
+  ? webVitalsAttributionPath
+  : path.join(process.cwd(), 'node_modules/web-vitals/dist/web-vitals.iife.js');
 
 export function env(name: string, fallback?: string): string {
   return process.env[name]?.trim() || fallback || '';
@@ -216,18 +227,86 @@ export async function installWebVitals(page: Page): Promise<void> {
   await page.addInitScript({
     content: `${webVitalsSource}
 ;(() => {
-  const state = { latest: {}, history: [], eventTimingMaxMs: 0, eventTimingCount: 0 };
+  const round = (value) =>
+    typeof value === 'number' && Number.isFinite(value)
+      ? Math.round(value * 100) / 100
+      : undefined;
+  const describeNode = (node) => {
+    try {
+      if (!node || node.nodeType !== 1) return '';
+      const element = node;
+      const id = element.id ? '#' + element.id : '';
+      const classes = element.classList && element.classList.length
+        ? '.' + Array.from(element.classList).slice(0, 4).join('.')
+        : '';
+      const attrs = [
+        element.getAttribute('aria-label'),
+        element.getAttribute('data-testid'),
+        element.getAttribute('data-test'),
+        element.getAttribute('ems-automation-id'),
+        element.getAttribute('href'),
+      ].filter(Boolean);
+      return [element.tagName.toLowerCase() + id + classes, attrs.join('|')]
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 180);
+    } catch {
+      return '';
+    }
+  };
+  const serializeEntry = (entry) => {
+    if (!entry) return {};
+    return {
+      name: entry.name || '',
+      entryType: entry.entryType || '',
+      startTime: round(entry.startTime),
+      duration: round(entry.duration),
+      interactionId: Number(entry.interactionId || 0),
+      processingStart: round(entry.processingStart),
+      processingEnd: round(entry.processingEnd),
+      cancelable: !!entry.cancelable,
+      target: describeNode(entry.target),
+    };
+  };
+  const serializeAttribution = (attribution) => {
+    if (!attribution) return undefined;
+    return {
+      interactionTarget: attribution.interactionTarget || '',
+      interactionType: attribution.interactionType || '',
+      interactionTime: round(attribution.interactionTime),
+      nextPaintTime: round(attribution.nextPaintTime),
+      inputDelay: round(attribution.inputDelay),
+      processingDuration: round(attribution.processingDuration),
+      presentationDelay: round(attribution.presentationDelay),
+      loadState: attribution.loadState || '',
+      processedEventEntries: Array.isArray(attribution.processedEventEntries)
+        ? attribution.processedEventEntries.slice(0, 8).map(serializeEntry)
+        : [],
+    };
+  };
+  const serializeMetric = (metric) => ({
+    name: metric.name,
+    value: metric.value,
+    delta: metric.delta,
+    rating: metric.rating,
+    id: metric.id,
+    navigationType: metric.navigationType,
+    entries: Array.isArray(metric.entries) ? metric.entries.slice(0, 8).map(serializeEntry) : [],
+    attribution: serializeAttribution(metric.attribution),
+  });
+  const state = {
+    latest: {},
+    history: [],
+    eventTimingMaxMs: 0,
+    eventTimingCount: 0,
+    eventTimingEntries: [],
+  };
   Object.defineProperty(window, '__benchWebVitals', {
     value: state,
     configurable: true,
   });
   const record = (metric) => {
-    const row = {
-      name: metric.name,
-      value: metric.value,
-      delta: metric.delta,
-      rating: metric.rating,
-    };
+    const row = serializeMetric(metric);
     state.latest[metric.name] = row;
     state.history.push(row);
   };
@@ -238,8 +317,12 @@ export async function installWebVitals(page: Page): Promise<void> {
           if (typeof entry.duration === 'number') {
             state.eventTimingCount += 1;
             state.eventTimingMaxMs = Math.max(state.eventTimingMaxMs, entry.duration);
+            state.eventTimingEntries.push(serializeEntry(entry));
           }
         }
+        state.eventTimingEntries = state.eventTimingEntries
+          .sort((a, b) => (b.duration || 0) - (a.duration || 0))
+          .slice(0, 25);
       }).observe({ type: 'event', buffered: true, durationThreshold: 0 });
     }
   } catch (err) {
@@ -266,18 +349,49 @@ export async function installWebVitals(page: Page): Promise<void> {
 
 export async function readBrowserMetrics(page: Page): Promise<BrowserMetricSnapshot> {
   return page.evaluate(() => {
+    const round = (value: number): number => Math.round(value * 100) / 100;
     const state = (window as unknown as {
       __benchWebVitals?: {
         latest?: Record<string, VitalMetric>;
+        history?: VitalMetric[];
         eventTimingMaxMs?: number;
         eventTimingCount?: number;
+        eventTimingEntries?: unknown[];
       };
     }).__benchWebVitals;
+    const navigation = performance.getEntriesByType('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const navigationTiming: Record<string, string | number> = navigation
+      ? {
+          type: navigation.type,
+          startTime: round(navigation.startTime),
+          responseEnd: round(navigation.responseEnd),
+          domContentLoadedEventEnd: round(navigation.domContentLoadedEventEnd),
+          loadEventEnd: round(navigation.loadEventEnd),
+          duration: round(navigation.duration),
+        }
+      : {};
 
     return {
       vitals: state?.latest ?? {},
+      history: state?.history ?? [],
       eventTimingMaxMs: state?.eventTimingMaxMs ?? 0,
       eventTimingCount: state?.eventTimingCount ?? 0,
+      eventTimingEntries: state?.eventTimingEntries ?? [],
+      browserEnvironment: {
+        userAgent: navigator.userAgent,
+        webdriver: !!navigator.webdriver,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+        devicePixelRatio: window.devicePixelRatio,
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        outerWidth: window.outerWidth,
+        outerHeight: window.outerHeight,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+      },
+      navigationTiming,
     };
   });
 }

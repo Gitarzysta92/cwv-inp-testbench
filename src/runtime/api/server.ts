@@ -93,6 +93,13 @@ function validatePrepareStepRequest(input: unknown): string | undefined {
     return 'profile.network.blockScripts must be a string array when provided';
   }
   if (
+    network['blockScriptsMode'] !== undefined &&
+    network['blockScriptsMode'] !== 'abort' &&
+    network['blockScriptsMode'] !== 'empty-response'
+  ) {
+    return 'profile.network.blockScriptsMode must be abort or empty-response when provided';
+  }
+  if (
     network['browserCache'] !== undefined &&
     network['browserCache'] !== 'default' &&
     network['browserCache'] !== 'disabled'

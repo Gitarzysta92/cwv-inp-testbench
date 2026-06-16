@@ -10,11 +10,13 @@ USE_XVFB="${BENCH_USE_XVFB:-0}"
 BROWSER_PID=""
 CDP_FORWARD_PID=""
 XVFB_PID=""
+WM_PID=""
 USER_DATA_DIR=""
 
 cleanup() {
   [ -n "${BROWSER_PID}" ] && kill "${BROWSER_PID}" 2>/dev/null || true
   [ -n "${CDP_FORWARD_PID}" ] && kill "${CDP_FORWARD_PID}" 2>/dev/null || true
+  [ -n "${WM_PID}" ] && kill "${WM_PID}" 2>/dev/null || true
   [ -n "${XVFB_PID}" ] && kill "${XVFB_PID}" 2>/dev/null || true
   [ -n "${USER_DATA_DIR}" ] && rm -rf "${USER_DATA_DIR}"
 }
@@ -28,8 +30,16 @@ if [ "${USE_XVFB}" = "1" ]; then
   Xvfb :99 -screen 0 "${W}x${H}x${D}" -ac +extension RANDR &
   XVFB_PID=$!
   sleep 1
+  if command -v openbox >/dev/null 2>&1; then
+    openbox >/tmp/openbox.log 2>&1 &
+    WM_PID=$!
+    sleep 0.5
+  fi
   HEADLESS=0
 fi
+
+WINDOW_W="${BROWSER_WINDOW_WIDTH:-${XVFB_WIDTH:-1280}}"
+WINDOW_H="${BROWSER_WINDOW_HEIGHT:-${XVFB_HEIGHT:-720}}"
 
 CHROMIUM="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}"
 if [ -z "${CHROMIUM}" ]; then
@@ -47,13 +57,32 @@ ARGS="
   --remote-debugging-address=0.0.0.0
   --user-data-dir=${USER_DATA_DIR}
   --no-sandbox
-  --disable-dev-shm-usage
+  --window-size=${WINDOW_W},${WINDOW_H}
+  --force-device-scale-factor=1
+  --high-dpi-support=1
   --disable-background-networking
+  --disable-backgrounding-occluded-windows
+  --disable-background-timer-throttling
+  --disable-breakpad
+  --disable-client-side-phishing-detection
+  --disable-component-update
   --disable-component-extensions-with-background-pages
+  --disable-default-apps
+  --disable-domain-reliability
   --disable-extensions
+  --disable-hang-monitor
+  --disable-ipc-flooding-protection
+  --disable-prompt-on-repost
+  --disable-renderer-backgrounding
+  --disable-sync
+  --metrics-recording-only
   --mute-audio
+  --noerrdialogs
   --no-first-run
   --no-default-browser-check
+  --password-store=basic
+  --use-mock-keychain
+  --disable-features=Translate,OptimizationHints,MediaRouter,DialMediaRouteProvider,CalculateNativeWinOcclusion,InterestFeedContentSuggestions,CertificateTransparencyComponentUpdater,AutofillServerCommunication,PrivacySandboxSettings4,RenderDocument
 "
 
 if [ "${HEADLESS}" = "1" ]; then

@@ -4,12 +4,14 @@ import type { Profile } from '../lab/types';
 export type ResolvedNetworkPolicy = {
   mockApi: boolean;
   blockScripts: string[];
+  blockScriptsMode: 'abort' | 'empty-response';
 };
 
 export function resolveNetworkPolicy(profile: Profile): ResolvedNetworkPolicy {
   return {
     mockApi: profile.application.apiMode === 'mocked',
     blockScripts: profile.network.blockScripts ?? [],
+    blockScriptsMode: profile.network.blockScriptsMode ?? 'abort',
   };
 }
 
@@ -22,13 +24,16 @@ export function networkPolicyEnv(profile: Profile): Record<string, string> {
 
   if (policy.blockScripts.length) {
     env['BENCH_BLOCK_SCRIPTS_JSON'] = JSON.stringify(policy.blockScripts);
+    env['BENCH_BLOCK_SCRIPTS_MODE'] = policy.blockScriptsMode;
   }
 
   return env;
 }
 
 export function networkPolicyFingerprint(policy: ResolvedNetworkPolicy): string {
-  const blocked = policy.blockScripts.length ? `block${policy.blockScripts.length}` : 'noblock';
+  const blocked = policy.blockScripts.length
+    ? `block${policy.blockScripts.length}-${policy.blockScriptsMode}`
+    : 'noblock';
   const api = policy.mockApi ? 'mockapi' : 'liveapi';
   return `${api}:${blocked}`;
 }

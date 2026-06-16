@@ -20,6 +20,7 @@ export type RuntimeProfileView = {
     kind: string;
     baseUrl?: string;
     blockScripts?: string[];
+    blockScriptsMode?: 'abort' | 'empty-response';
     browserCache?: 'default' | 'disabled';
     runtimeNetworkCache?: 'default' | 'disabled';
     runtimeCacheMissPolicy?: 'block' | 'continue';
