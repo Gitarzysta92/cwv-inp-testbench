@@ -13,7 +13,6 @@
     "bench:euro": "tsx src/experiments/lab/euro-cwv-lab/experiment.ts",
     "bench:euro:menu": "tsx src/experiments/lab/euro-menu-lab/experiment.ts",
     "bench:runtime:euro:menu:docker-headful-xvfb": "tsx src/experiments/runtime/euro-menu-docker-headful-xvfb/experiment.ts",
-    "bench:runtime:euro:menu:docker-headful-xvfb:no-replay": "tsx src/experiments/runtime/euro-menu-docker-headful-xvfb-no-replay/experiment.ts",
     "bench:runtime:euro:menu:local-headful": "tsx src/experiments/runtime/euro-menu-local-headful/experiment.ts",
     "bench:runtime:euro:menu:local-headless": "tsx src/experiments/runtime/euro-menu-local-headless/experiment.ts",
     "bench:runtime-api": "tsx src/runtime/api/server.ts",

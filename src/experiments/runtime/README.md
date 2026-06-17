@@ -25,8 +25,8 @@ Full Euro hamburger-menu methodology lab on explicit runtime variants:
 
 ```bash
 npm run bench:runtime:euro:menu:docker-headful-xvfb
-npm run bench:runtime:euro:menu:docker-headful-xvfb:no-replay
 npm run bench:runtime:euro:menu:local-headful
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 Each run uses the same Euro menu profiles and reports, but changes the runtime
@@ -35,11 +35,11 @@ host class:
 | Runtime | Folder | Browser |
 | --- | --- | --- |
 | Docker + Xvfb | `src/runtime/docker-headful-xvfb` | headful Chromium in Xvfb |
-| Docker + Xvfb, no replay | `src/runtime/docker-headful-xvfb-no-replay` | headful Chromium in Xvfb, no runtime replay cache |
 | Local headful | `src/runtime/local-headful` | normal headful Chromium outside Docker |
+| Local headless | `src/runtime/local-headless` | headless Chromium outside Docker |
 
-Local headful disables the runtime-managed replay cache so it behaves like a
-normal browser run instead of a CDP replay proxy run.
+All three runtime variants disable the runtime-managed replay cache so they
+behave like normal browser runs instead of CDP replay proxy runs.
 
 Use `BENCH_REPLICATES=1` for smoke checks or the default `10` for the current
 methodology run.
@@ -48,8 +48,9 @@ CPU throttling is applied through Chrome DevTools Protocol and is reported as
 `browserCpuThrottleRate` in observations:
 
 ```bash
-BENCH_XVFB_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:docker-headful-xvfb:no-replay
+BENCH_XVFB_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:docker-headful-xvfb
 BENCH_HEADFUL_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:local-headful
+BENCH_HEADLESS_CPU_THROTTLE_RATE=8 npm run bench:runtime:euro:menu:local-headless
 ```
 
 Both aliases map to `BENCH_BROWSER_CPU_THROTTLE_RATE`; the generic variable can
