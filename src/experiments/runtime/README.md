@@ -41,6 +41,12 @@ host class:
 All three runtime variants disable the runtime-managed replay cache so they
 behave like normal browser runs instead of CDP replay proxy runs.
 
+Known caveat: Docker + Xvfb can diverge from local Chromium. In recent Euro menu
+checks, the blocked-scripts profile was faster or neutral locally but slower
+under Docker/Xvfb because `inpPresentationDelayMs` increased. When this happens,
+compare against both local runtime variants before treating the result as a page
+behaviour regression.
+
 Use `BENCH_REPLICATES=1` for smoke checks or the default `10` for the current
 methodology run.
 

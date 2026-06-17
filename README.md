@@ -3,6 +3,9 @@
 Lab do porownywania wplywu konfiguracji runtime na Core Web Vitals, przede
 wszystkim INP, dla realnych scenariuszy uzytkownika.
 
+For English onboarding, start with [AGENTS.md](./AGENTS.md). Operational
+playbooks for common project tasks are in [SKILLS.md](./SKILLS.md).
+
 Aktualny glowny przypadek uzycia to `euro.com.pl`: scenariusze Playwright
 wykonuja konkretne akcje uzytkownika, runtime kontroluje przegladarke i siec,
 a lab agreguje wyniki z wielu przebiegow.
