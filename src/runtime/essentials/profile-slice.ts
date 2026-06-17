@@ -1,4 +1,4 @@
-import type { Profile } from '../lab/types';
+import type { Profile } from '../../lab/types';
 import { networkEnvironmentId, resolveNetworkTarget } from './network';
 import { networkPolicyFingerprint, resolveNetworkPolicy } from './network-policy';
 

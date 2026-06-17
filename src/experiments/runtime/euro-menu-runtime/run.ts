@@ -1,4 +1,4 @@
-import type { BenchRuntime } from '../../../runtime';
+import type { BenchRuntime } from '../../../runtime/essentials';
 import { EURO_MENU_SCENARIO_ID } from '../../lab/euro-cwv-lab/definition';
 import {
   runEuroExperiment,

@@ -1,4 +1,4 @@
-import type { NetworkTargetKind, Profile } from '../lab/types';
+import type { NetworkTargetKind, Profile } from '../../lab/types';
 
 export type ResolvedNetworkTarget = {
   /** URL the browser navigates to — must be reachable from the browser process/container. */

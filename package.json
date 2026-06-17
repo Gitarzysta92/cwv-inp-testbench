@@ -19,7 +19,7 @@
     "bench:seed-euro-menu": "tsx src/experiments/import/euro-seed-menu/experiment.ts",
     "bench:seed-euro-paths": "tsx src/experiments/import/euro-seed-paths/experiment.ts",
     "runtime:test": "tsx src/runtime/tests/run.ts",
-    "runtime:docker:build": "docker build -t cwv-runtime -f src/runtime/Dockerfile .",
+    "runtime:docker:build": "docker build -t cwv-runtime -f src/runtime/essentials/Dockerfile .",
     "runtime:docker:run": "docker run --rm --shm-size=2g -p 8090:8090 -p 9223:9223 cwv-runtime"
   },
   "private": true,

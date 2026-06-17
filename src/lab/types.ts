@@ -46,8 +46,6 @@ export type RuntimeProfileSlice = {
     proxyUrl?: string;
     /** Script URL path patterns aborted in the browser (runtime policy). */
     blockScripts?: string[];
-    /** How blocked script requests are completed by the runtime policy. */
-    blockScriptsMode?: 'abort' | 'empty-response';
     /** Disable Chromium HTTP cache for the measured browser session. */
     browserCache?: 'default' | 'disabled';
     /** Runtime-managed response replay cache policy. */

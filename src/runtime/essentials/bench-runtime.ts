@@ -1,4 +1,4 @@
-import type { Profile } from '../lab/types';
+import type { Profile } from '../../lab/types';
 
 export type BenchRuntimeStartInput = {
   profile: Profile;

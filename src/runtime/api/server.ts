@@ -2,7 +2,7 @@
 import * as http from 'http';
 import { beginBrowserSession } from '../driver/cdp/browser-session';
 import { waitForBrowserAppliance } from '../driver/wait-for-browser';
-import { prepareRuntimeContext } from '../prepare-context';
+import { prepareRuntimeContext } from '../essentials/prepare-context';
 import type { ObservationNetworkStats } from '../../lab/types';
 import type {
   ApiErrorResponse,
@@ -96,12 +96,8 @@ function validatePrepareStepRequest(input: unknown): string | undefined {
   if (network['blockScripts'] !== undefined && !isStringArray(network['blockScripts'])) {
     return 'profile.network.blockScripts must be a string array when provided';
   }
-  if (
-    network['blockScriptsMode'] !== undefined &&
-    network['blockScriptsMode'] !== 'abort' &&
-    network['blockScriptsMode'] !== 'empty-response'
-  ) {
-    return 'profile.network.blockScriptsMode must be abort or empty-response when provided';
+  if (network['blockScriptsMode'] !== undefined) {
+    return 'profile.network.blockScriptsMode is no longer supported; blocked scripts are always aborted';
   }
   if (
     network['browserCache'] !== undefined &&

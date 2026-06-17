@@ -6,7 +6,7 @@
  *   BENCH_REPLICATES=1 npm run bench:runtime:euro:menu:local-headful
  *   BENCH_HEADFUL_CPU_THROTTLE_RATE=8 BENCH_REPLICATES=1 npm run bench:runtime:euro:menu:local-headful
  */
-import { localHeadfulRuntime } from '../../../runtime';
+import { localHeadfulRuntime } from '../../../runtime/local-headful';
 import { runEuroMenuRuntimeExperiment } from '../euro-menu-runtime/run';
 
 export function runEuroMenuLocalHeadfulExperiment() {

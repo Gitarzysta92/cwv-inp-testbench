@@ -13,7 +13,7 @@ RUN npm ci --omit=dev \
 
 COPY tsconfig.json ./
 COPY src ./src
-COPY src/runtime/entrypoint.sh ./entrypoint.sh
+COPY src/runtime/essentials/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh && chown -R pwuser:pwuser /app
 
 USER pwuser

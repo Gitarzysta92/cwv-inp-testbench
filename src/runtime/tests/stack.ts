@@ -8,7 +8,7 @@ import { LIVE_APP_URL } from './fixtures';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '../../..');
-const DOCKERFILE = path.join(REPO_ROOT, 'src/runtime/Dockerfile');
+const DOCKERFILE = path.join(REPO_ROOT, 'src/runtime/essentials/Dockerfile');
 const IMAGE = process.env['RUNTIME_IMAGE'] ?? 'cwv-runtime:test';
 const CONTAINER = process.env['RUNTIME_CONTAINER'] ?? 'cwv-runtime-test';
 const CONTAINER_CDP_PUBLIC_PORT = Number(process.env['RUNTIME_CONTAINER_CDP_PUBLIC_PORT'] ?? 9223);

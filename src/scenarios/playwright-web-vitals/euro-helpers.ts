@@ -40,6 +40,13 @@ export type EuroScenarioResult = ScenarioTiming & {
   metrics?: Record<string, number>;
 };
 
+type EuroHomeNavigationMetrics = {
+  homeLoadWaitMs: number;
+  homeLoadTimedOut: number;
+};
+
+const homeNavigationMetricsByPage = new WeakMap<Page, EuroHomeNavigationMetrics>();
+
 export type EuroScenarioDefinition = {
   id: string;
   title: string;
@@ -259,13 +266,26 @@ export async function gotoEuroHome(
   diagnostics?: PageDiagnosticsCapture,
 ): Promise<void> {
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  const loadWaitStartedAt = Date.now();
+  let homeLoadTimedOut = 0;
   await page
     .waitForLoadState('load', { timeout: 20_000 })
     .then(() => diagnostics?.capturePendingRequests('home-load-complete'))
-    .catch(() => diagnostics?.capturePendingRequests('home-load-timeout'));
+    .catch(() => {
+      homeLoadTimedOut = 1;
+      diagnostics?.capturePendingRequests('home-load-timeout');
+    });
+  homeNavigationMetricsByPage.set(page, {
+    homeLoadWaitMs: Date.now() - loadWaitStartedAt,
+    homeLoadTimedOut,
+  });
   await page.waitForTimeout(1_000);
   await clearConsentOverlay(page);
   await assertNotBlocked(page, 'home navigation');
+}
+
+function homeNavigationMetrics(page: Page): Record<string, number> {
+  return homeNavigationMetricsByPage.get(page) ?? {};
 }
 
 export async function waitForPageAge(page: Page, minAgeMs: number): Promise<void> {
@@ -505,6 +525,7 @@ export function defineEuroScenarioTest(scenario: EuroScenarioDefinition): void {
         metrics: {
           ...metrics,
           ...pageDiagnosticsMetrics(diagnostics),
+          ...homeNavigationMetrics(attached.page),
           ...(timing.metrics ?? {}),
         },
         meta: {

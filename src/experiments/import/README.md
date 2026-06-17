@@ -2,6 +2,9 @@
 
 Backfill `bench-results/` from already-collected measurements. No browser, no orchestrator — synthetic `Observation`s that match the format produced by lab runs.
 
+These experiments are archival. The current target model is live browser runtime
+measurement; do not use imported replay-cache rows as evidence for new runs.
+
 ## Files in each experiment
 
 | File | Role |

@@ -1,5 +1,5 @@
 import type { ObservationNetworkStats, Profile } from '../../../lab/types';
-import type { ResolvedNetworkPolicy } from '../../network-policy';
+import type { ResolvedNetworkPolicy } from '../../essentials/network-policy';
 import { CdpConnection } from './connection';
 import { closeTarget, openPageTarget, type CdpTarget } from './targets';
 import {

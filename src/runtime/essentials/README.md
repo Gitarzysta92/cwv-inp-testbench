@@ -28,7 +28,7 @@ profile (runtime slice)
 | Headless / launch flags | container entrypoint / client launch | ✓ when launching locally |
 | Scenario flows (click, type, measure INP) | — | ✓ |
 
-The profile splits into **runtime slice** (`network`, `warmup`, `application`, `slowdown`) and **client slice** (`device`, `system`, `browser` launch preferences). See [`../lab/types.ts`](../lab/types.ts).
+The profile splits into **runtime slice** (`network`, `warmup`, `application`, `slowdown`) and **client slice** (`device`, `system`, `browser` launch preferences). See [`../../lab/types.ts`](../../lab/types.ts).
 
 ## Flow per step
 
@@ -46,7 +46,7 @@ The profile splits into **runtime slice** (`network`, `warmup`, `application`, `
 | `network.ts` | Resolve navigation target (`mock-static` / `live` / override chain) |
 | `network-policy.ts` | Resolve and export mock-api / blockScripts policy |
 | `profile-slice.ts` | Runtime slice view + `runtimeEnvironmentId` fingerprint |
-| `driver/cdp/` | Thin CDP driver: Fetch mocks, Network blocking, warmup, session |
+| `../driver/cdp/` | Thin CDP driver: Fetch mocks, Network blocking, warmup, session |
 
 ### Runtime cache miss policy
 
@@ -86,7 +86,7 @@ Runtime does **not** execute scenarios or produce reports. Clients do **not** ow
 
 ## Tests
 
-Small test client in `tests/runtime-client.ts` drives the runtime API + CDP browser.
+Small test client in `../tests/runtime-client.ts` drives the runtime API + CDP browser.
 
 ```bash
 npm run runtime:test -- --local   # chrome-launcher + driver on host
@@ -94,6 +94,7 @@ npm run runtime:test -- --docker  # build + run container
 npm run runtime:test              # against already-running stack
 npm run runtime:docker:build      # manual build
 npm run runtime:docker:run        # manual run (foreground)
+npm run bench:runtime:euro:menu:docker-headful-xvfb
 npm run bench:runtime:euro:menu:local-headful
 npm run bench:runtime:euro:menu:local-headless
 ```

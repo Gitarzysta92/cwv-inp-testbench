@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { createLabResultsService, validateLab } from '../lab';
 import { reportStoragePaths } from '../lab/report';
-import { prepareRuntimeContext } from '../runtime';
+import { prepareRuntimeContext } from '../runtime/essentials';
 import { resolveBrowserConnect } from '../clients';
 import type {
   ClientId,
@@ -10,7 +10,7 @@ import type {
   Observation,
   ObservationNetworkStats,
 } from '../lab/types';
-import type { RuntimeContext } from '../runtime/types';
+import type { RuntimeContext } from '../runtime/essentials/types';
 import { getBenchClient } from '../clients/registry';
 import { RuntimeApiClient } from './runtime-api-client';
 import { buildScheduleForLab, type OrchestratorRunInstruction } from './scheduler';
@@ -50,22 +50,6 @@ function addNetworkStats(observation: Observation, network: ObservationNetworkSt
   observation.meta.network = network;
   observation.metrics['networkBlockedByPolicy'] = network.policy.blockedByPolicy;
   const runtimeCache = network.runtimeCache;
-  Object.assign(observation.metrics, {
-    runtimeCacheEnabled: runtimeCache.enabled ? 1 : 0,
-    runtimeCacheCaptureSeen: runtimeCache.capture.seen,
-    runtimeCacheCaptureStored: runtimeCache.capture.stored,
-    runtimeCacheCaptureSkipped: runtimeCache.capture.skipped,
-    runtimeCacheCaptureBodyReadFailed: runtimeCache.capture.bodyReadFailed,
-    runtimeCacheCaptureEntries: runtimeCache.capture.cacheEntries,
-    runtimeCacheReplayTotalPaused: runtimeCache.replay.totalPaused,
-    runtimeCacheReplayServedFromCache: runtimeCache.replay.servedFromCache,
-    runtimeCacheReplayBlockedCacheMisses: runtimeCache.replay.blockedCacheMisses,
-    runtimeCacheReplayContinuedToNetwork: runtimeCache.replay.continuedToNetwork,
-    runtimeCacheReplayFulfillFailures: runtimeCache.replay.fulfillFailures,
-    runtimeCacheReplayAllHandledLocally: runtimeCache.replay.allHandledLocally ? 1 : 0,
-    runtimeCacheReplayAllServedFromCache: runtimeCache.replay.allServedFromCache ? 1 : 0,
-    runtimeCacheReplayMissPolicyContinue: runtimeCache.missPolicy === 'continue' ? 1 : 0,
-  });
 
   const replayFailed =
     (runtimeCache.missPolicy ?? 'block') === 'block'

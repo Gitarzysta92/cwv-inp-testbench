@@ -6,5 +6,5 @@ export * from './report';
 export * from './results';
 
 // Re-export profile slices from their owning layers for config tooling.
-export { runtimeSlice, runtimeEnvironmentId } from '../runtime/profile-slice';
+export { runtimeSlice, runtimeEnvironmentId } from '../runtime/essentials/profile-slice';
 export { clientSlice } from '../clients/profile-slice';

@@ -499,6 +499,10 @@ export function pageDiagnosticsMeta(
   diagnostics: PageDiagnosticsCapture,
 ): Record<string, string | number | boolean> {
   diagnostics.refreshPendingRequests();
+  if (env('BENCH_DEBUG_ARTIFACTS') !== '1') {
+    return {};
+  }
+
   return {
     consoleMessagesJson: JSON.stringify(diagnostics.consoleMessages),
     pageErrorsJson: JSON.stringify(diagnostics.pageErrors),
@@ -1289,6 +1293,21 @@ export function toBenchMetrics(
     metrics['inpMs'] = inp;
   } else {
     metrics['inpMs'] = roundMetric(snapshot.eventTimingMaxMs);
+  }
+
+  const inpAttribution = snapshot.vitals['INP']?.attribution as
+    | Record<string, unknown>
+    | undefined;
+  const inputDelay = maybeMetric(inpAttribution?.['inputDelay']);
+  const processingDuration = maybeMetric(inpAttribution?.['processingDuration']);
+  const presentationDelay = maybeMetric(inpAttribution?.['presentationDelay']);
+
+  if (inputDelay !== undefined) metrics['inpInputDelayMs'] = inputDelay;
+  if (processingDuration !== undefined) {
+    metrics['inpProcessingDurationMs'] = processingDuration;
+  }
+  if (presentationDelay !== undefined) {
+    metrics['inpPresentationDelayMs'] = presentationDelay;
   }
 
   const fcp = maybeMetric(snapshot.vitals['FCP']?.value);

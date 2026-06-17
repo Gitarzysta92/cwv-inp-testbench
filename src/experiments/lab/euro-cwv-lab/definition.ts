@@ -77,7 +77,6 @@ export const euroMenuMethodologyProfiles: Profile[] = [
     network: {
       ...profileBase.network,
       blockScripts: EURO_BLOCK_SCRIPT_PATTERNS,
-      blockScriptsMode: 'abort',
       browserCache: 'default',
       runtimeNetworkCache: 'default',
     },

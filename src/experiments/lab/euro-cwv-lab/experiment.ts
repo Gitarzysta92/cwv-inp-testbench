@@ -11,8 +11,8 @@ import type { LabDefinition, Observation } from '../../../lab/types';
 import { runLabSession, type RunLabSessionResult, type RuntimeApiLease } from '../../../orchestrator/run-lab-session';
 import type { OrchestratorRunInstruction } from '../../../orchestrator/scheduler';
 import { RuntimeApiClient } from '../../../orchestrator/runtime-api-client';
-import type { BenchRuntime } from '../../../runtime';
-import { dockerHeadfulXvfbRuntime } from '../../../runtime';
+import type { BenchRuntime } from '../../../runtime/essentials';
+import { dockerHeadfulXvfbRuntime } from '../../../runtime/docker-headful-xvfb';
 import { euroMenuMethodologyLab } from './definition';
 
 export { euroMenuMethodologyLab, euroMenuMethodologyProfiles } from './definition';

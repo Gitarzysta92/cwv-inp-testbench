@@ -1,4 +1,4 @@
-import type { Profile } from '../lab/types';
+import type { Profile } from '../../lab/types';
 import { buildRuntimeEnvironmentId } from './profile-slice';
 import { resolveNetworkTarget, type ResolveNetworkOptions } from './network';
 import { networkPolicyEnv, resolveNetworkPolicy } from './network-policy';

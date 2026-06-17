@@ -5,7 +5,7 @@
  *   npm run bench:runtime:euro:menu:docker-headful-xvfb
  *   BENCH_REPLICATES=1 npm run bench:runtime:euro:menu:docker-headful-xvfb
  */
-import { dockerHeadfulXvfbRuntime } from '../../../runtime';
+import { dockerHeadfulXvfbRuntime } from '../../../runtime/docker-headful-xvfb';
 import { runEuroMenuRuntimeExperiment } from '../euro-menu-runtime/run';
 
 export function runEuroMenuDockerHeadfulXvfbExperiment() {

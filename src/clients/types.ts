@@ -4,7 +4,7 @@ import type {
   Observation,
   SessionStep,
 } from '../lab/types';
-import type { RuntimeContext } from '../runtime/types';
+import type { RuntimeContext } from '../runtime/essentials/types';
 
 export type ClientRunInput = {
   definition: LabDefinition;

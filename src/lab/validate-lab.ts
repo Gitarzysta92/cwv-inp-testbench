@@ -33,6 +33,13 @@ export function validateLab(definition: LabDefinition): void {
       throw new Error(`profile "${profile.id}" network.blockScripts must be an array`);
     }
     if (
+      (profile.network as Record<string, unknown>)['blockScriptsMode'] !== undefined
+    ) {
+      throw new Error(
+        `profile "${profile.id}" network.blockScriptsMode is no longer supported; blocked scripts are always aborted`,
+      );
+    }
+    if (
       profile.network.runtimeCacheMissPolicy !== undefined &&
       profile.network.runtimeCacheMissPolicy !== 'block' &&
       profile.network.runtimeCacheMissPolicy !== 'continue'

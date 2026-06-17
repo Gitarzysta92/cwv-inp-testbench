@@ -60,7 +60,9 @@ bench-results/summary/<sessionId>/report.tsv
 
 Import experiments may also write human exports under `bench-results/euro-paths/<date>/`.
 
-Runtime experiments print pass/fail to the terminal; they do not produce lab reports unless you add that separately.
+Runtime smoke tests print pass/fail to the terminal. Runtime Euro menu experiments
+run the lab pipeline for their runtime and write the same `report.json` /
+`report.tsv` outputs.
 
 ## Adding a new experiment
 

@@ -1,4 +1,4 @@
-import type { WarmupPolicy } from '../lab/types';
+import type { WarmupPolicy } from '../../lab/types';
 import type { ResolvedNetworkTarget } from './network';
 import type { ResolvedNetworkPolicy } from './network-policy';
 
@@ -20,7 +20,6 @@ export type RuntimeProfileView = {
     kind: string;
     baseUrl?: string;
     blockScripts?: string[];
-    blockScriptsMode?: 'abort' | 'empty-response';
     browserCache?: 'default' | 'disabled';
     runtimeNetworkCache?: 'default' | 'disabled';
     runtimeCacheMissPolicy?: 'block' | 'continue';

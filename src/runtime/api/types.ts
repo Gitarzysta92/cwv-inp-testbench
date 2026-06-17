@@ -1,6 +1,6 @@
 import type { ObservationNetworkStats, Profile } from '../../lab/types';
 import type { WarmupResult } from '../driver/cdp/warmup';
-import type { RuntimeContext } from '../types';
+import type { RuntimeContext } from '../essentials/types';
 
 export const RUNTIME_API_SCHEMA = 'cwv-runtime-api/1';
 
