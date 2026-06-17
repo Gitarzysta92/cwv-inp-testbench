@@ -94,6 +94,8 @@ npm run runtime:test -- --docker  # build + run container
 npm run runtime:test              # against already-running stack
 npm run runtime:docker:build      # manual build
 npm run runtime:docker:run        # manual run (foreground)
+npm run bench:runtime:euro:menu:local-headful
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 Live target default: `https://www.google.com`.
