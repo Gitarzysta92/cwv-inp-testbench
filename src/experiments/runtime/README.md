@@ -24,9 +24,9 @@ Validate runtime and CDP behaviour, either with focused smoke tests or runtime-s
 Full Euro hamburger-menu methodology lab on explicit runtime variants:
 
 ```bash
+npm run bench:runtime:euro:menu:local-headless
 npm run bench:runtime:euro:menu:docker-headful-xvfb
 npm run bench:runtime:euro:menu:local-headful
-npm run bench:runtime:euro:menu:local-headless
 ```
 
 Each run uses the same Euro menu profiles and reports, but changes the runtime
@@ -34,9 +34,9 @@ host class:
 
 | Runtime | File | Browser |
 | --- | --- | --- |
+| Local headless (primary) | `src/runtime/local-headless.ts` | headless Chromium outside Docker |
 | Docker + Xvfb | `src/runtime/docker-headful-xvfb.ts` | headful Chromium in Xvfb |
 | Local headful | `src/runtime/local-headful.ts` | normal headful Chromium outside Docker |
-| Local headless | `src/runtime/local-headless.ts` | headless Chromium outside Docker |
 
 All three runtime variants disable the runtime-managed replay cache so they
 behave like normal browser runs instead of CDP replay proxy runs.

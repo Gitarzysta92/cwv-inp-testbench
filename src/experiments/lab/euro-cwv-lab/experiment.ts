@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Euro CWV lab — profiles × scenarios × replicates via isolated Docker runtime.
+ * Euro CWV lab — profiles × scenarios × replicates via the primary local headless runtime.
  *
  *   npm run bench:euro
  *   BENCH_REPLICATES=100 npm run bench:euro
@@ -12,10 +12,14 @@ import { runLabSession, type RunLabSessionResult, type RuntimeApiLease } from '.
 import type { OrchestratorRunInstruction } from '../../../orchestrator/scheduler';
 import { RuntimeApiClient } from '../../../orchestrator/runtime-api-client';
 import type { BenchRuntime } from '../../../runtime/essentials';
-import { dockerHeadfulXvfbRuntime } from '../../../runtime/docker-headful-xvfb';
+import { localHeadlessRuntime } from '../../../runtime/local-headless';
 import { euroMenuMethodologyLab } from './definition';
 
-export { euroMenuMethodologyLab, euroMenuMethodologyProfiles } from './definition';
+export {
+  euroMenuMethodologyDisabledScenarios,
+  euroMenuMethodologyLab,
+  euroMenuMethodologyProfiles,
+} from './definition';
 export { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './profiles';
 
 export type RunEuroExperimentOptions = {
@@ -167,7 +171,7 @@ async function startRuntimeForInstruction(input: {
 
 export async function runEuroExperiment(options: RunEuroExperimentOptions = {}): Promise<RunLabSessionResult> {
   const repoRoot = options.repoRoot ?? path.resolve(process.cwd());
-  const runtime = options.runtime ?? dockerHeadfulXvfbRuntime;
+  const runtime = options.runtime ?? localHeadlessRuntime;
   const labDefinition = applyRuntimeToLabDefinition(
     resolveEuroLabDefinition({
       replicates: options.replicates,

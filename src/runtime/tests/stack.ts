@@ -44,6 +44,16 @@ function runDocker(args: string[], options?: { stdio?: StdioOptions }): Promise<
   });
 }
 
+function isChromeTempCleanupRace(err: unknown): boolean {
+  const candidate = err as { code?: unknown; path?: unknown; syscall?: unknown };
+  return (
+    candidate.code === 'ENOTEMPTY' &&
+    candidate.syscall === 'rmdir' &&
+    typeof candidate.path === 'string' &&
+    path.basename(candidate.path).startsWith('lighthouse.')
+  );
+}
+
 function reserveLocalPort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -75,6 +85,22 @@ async function resolveLocalPort(explicit: number | undefined, envName: string): 
   }
 
   return reserveLocalPort();
+}
+
+function resolveConfiguredPort(explicit: number | undefined, envName: string): number | undefined {
+  if (explicit !== undefined) {
+    return explicit;
+  }
+
+  const raw = process.env[envName];
+  if (raw !== undefined) {
+    const fromEnv = Number(raw);
+    if (Number.isFinite(fromEnv) && fromEnv > 0) {
+      return Math.floor(fromEnv);
+    }
+  }
+
+  return undefined;
 }
 
 /** Build and start the runtime container (Chromium + driver API). */
@@ -145,7 +171,7 @@ export async function upLocalStack(options?: {
   headless?: boolean;
   windowSize?: { width: number; height: number };
 }): Promise<TestStack> {
-  const driverPort = await resolveLocalPort(options?.driverPort, 'RUNTIME_API_PORT');
+  const driverPort = resolveConfiguredPort(options?.driverPort, 'RUNTIME_API_PORT') ?? 0;
   const requestedCdpPort = await resolveLocalPort(options?.cdpPort, 'RUNTIME_CDP_PORT');
   const appUrl = options?.appUrl ?? LIVE_APP_URL;
   const headless = options?.headless ?? true;
@@ -166,21 +192,47 @@ export async function upLocalStack(options?: {
   process.env['BROWSER_CDP_URL'] = cdpUrl;
   process.env['BROWSER_APP_BASE_URL'] = appUrl;
   process.env['HOST_BROWSER_CDP_URL'] = cdpUrl;
-  process.env['RUNTIME_DRIVER_PORT'] = String(driverPort);
 
   await waitForBrowserAppliance({ cdpUrl });
 
   const { startRuntimeApiServer } = await import('../api/server');
-  const server = await startRuntimeApiServer({ port: driverPort });
-  await waitForHttp(`http://127.0.0.1:${driverPort}/health`);
+  let server: Awaited<ReturnType<typeof startRuntimeApiServer>>;
+  try {
+    server = await startRuntimeApiServer({ port: driverPort });
+  } catch (err) {
+    try {
+      await chrome.kill();
+    } catch (killErr) {
+      if (!isChromeTempCleanupRace(killErr)) {
+        console.error(`failed to stop Chrome after runtime API start failure: ${String(killErr)}`);
+      }
+    }
+    throw err;
+  }
+
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await chrome.kill();
+    throw new Error('runtime API did not expose a TCP listener address');
+  }
+  const actualDriverPort = address.port;
+  process.env['RUNTIME_DRIVER_PORT'] = String(actualDriverPort);
+  await waitForHttp(`http://127.0.0.1:${actualDriverPort}/health`);
 
   return {
-    apiUrl: `http://127.0.0.1:${driverPort}`,
+    apiUrl: `http://127.0.0.1:${actualDriverPort}`,
     cdpUrl,
     appUrl,
     stop: async () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      await chrome.kill();
+      try {
+        await chrome.kill();
+      } catch (err) {
+        if (!isChromeTempCleanupRace(err)) {
+          throw err;
+        }
+      }
     },
   };
 }

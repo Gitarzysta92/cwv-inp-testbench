@@ -35,7 +35,7 @@ export function euroLiveProfile(overrides?: Partial<Profile>): Profile {
     browser: {
       engine: 'chromium',
       project: 'Desktop Chrome',
-      headless: false,
+      headless: true,
       freshContextPerRun: true,
     },
     application: {

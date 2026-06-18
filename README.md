@@ -19,7 +19,7 @@ flowchart TD
   B --> C["Scheduler<br/>tworzy plaska liste uruchomien"]
   C --> D["Run instruction<br/>profile + scenario + runIndex"]
 
-  D --> E["Runtime Docker<br/>izolowane srodowisko per run"]
+  D --> E["Runtime local headless<br/>izolowane srodowisko per run"]
 
   E --> E1["Chrome / Playwright endpoint"]
   E --> E2["Warmup cache"]
@@ -164,22 +164,26 @@ Scenariusze sa trzymane jako osobne pliki w
 
 Aktualnie mamy m.in.:
 
-| Scenariusz | Plik |
-|---|---|
-| hamburger menu | `euro-open-menu.spec.ts` |
-| search layer | `euro-search-layer.spec.ts` |
-| rotator banner click | `euro-rotator-banner-click.spec.ts` |
-| product box to PDP | `euro-product-box-to-pdp.spec.ts` |
-| product box card click | `euro-product-box-card-click.spec.ts` |
-| promo tag click | `euro-promo-tag-click.spec.ts` |
-| listing open filters | `euro-listing-open-filters.spec.ts` |
-| add to cart | `euro-add-to-cart.spec.ts` |
-| standard/installments tab | `euro-product-standard-installments-tab.spec.ts` |
-| listing sort | `euro-listing-sort.spec.ts` |
-| listing quick filter | `euro-listing-quick-filter.spec.ts` |
-| listing brand filter | `euro-listing-brand-filter.spec.ts` |
-| listing price filter | `euro-listing-price-filter.spec.ts` |
-| listing scroll products | `euro-listing-scroll-products.spec.ts` |
+| Scenariusz | Plik | Status |
+|---|---|---|
+| hamburger menu | `euro-open-menu.spec.ts` | active |
+| search layer | `euro-search-layer.spec.ts` | active |
+| rotator banner click | `euro-rotator-banner-click.spec.ts` | active |
+| product box to PDP | `euro-product-box-to-pdp.spec.ts` | active |
+| product box card click | `euro-product-box-card-click.spec.ts` | active |
+| promo tag click | `euro-promo-tag-click.spec.ts` | broken/disabled |
+| listing open filters | `euro-listing-open-filters.spec.ts` | active |
+| add to cart | `euro-add-to-cart.spec.ts` | active |
+| standard/installments tab | `euro-product-standard-installments-tab.spec.ts` | active |
+| listing sort | `euro-listing-sort.spec.ts` | active |
+| listing quick filter | `euro-listing-quick-filter.spec.ts` | active |
+| listing brand filter | `euro-listing-brand-filter.spec.ts` | active |
+| listing price filter | `euro-listing-price-filter.spec.ts` | active |
+| listing scroll products | `euro-listing-scroll-products.spec.ts` | active |
+
+`promo tag click` is kept as a disabled catalog entry because the current live
+campaign no longer exposes a stable matching target. It is excluded from the
+default Euro methodology experiments.
 
 Scenariusze PDP/listing sa defensywne wobec blokady Euro: kiedy strona zwroci
 block page, zapisujemy ten stan w `meta`/`metrics` zamiast falszowac pelna
@@ -217,13 +221,13 @@ Sprawdzenie TypeScript:
 npx tsc --noEmit
 ```
 
-Build obrazu runtime:
+Opcjonalny build obrazu Docker runtime:
 
 ```bash
 npm run runtime:docker:build
 ```
 
-Eksperyment Euro przez izolowany orchestrator:
+Eksperyment Euro przez primary local headless runtime:
 
 ```bash
 npm run bench:euro

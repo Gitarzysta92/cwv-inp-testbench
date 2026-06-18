@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Euro hamburger menu — full methodology lab with isolated Docker runtime.
+ * Euro hamburger menu — full methodology lab with the primary local headless runtime.
  *
  * Same 4 cache/network profiles and gate as euro-cwv-lab, but only
  * scenario-euro-open-menu (4 profiles × 10 replicates = 40 steps).

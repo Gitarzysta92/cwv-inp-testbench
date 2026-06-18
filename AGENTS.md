@@ -27,8 +27,8 @@ only a direct answer, a command output, or a terse status update.
 
 ## Current Objective
 
-The target model is live browser measurement, not offline replay as the primary
-methodology.
+The target model is live browser measurement in local Chromium headless, not
+offline replay or Docker/Xvfb as the primary methodology.
 
 The Euro default target is `EURO_APP_URL`, defined by the Euro profile builder
 with fallback `https://www.euro.com.pl/`. `PLAYWRIGHT_BASE_URL` is the generic
@@ -44,9 +44,9 @@ Run it across these runtime variants:
 
 | Runtime | Script |
 | --- | --- |
+| Local Chromium headless (primary) | `npm run bench:runtime:euro:menu:local-headless` |
 | Docker + Xvfb + container Chromium | `npm run bench:runtime:euro:menu:docker-headful-xvfb` |
 | Local Chromium headful | `npm run bench:runtime:euro:menu:local-headful` |
-| Local Chromium headless | `npm run bench:runtime:euro:menu:local-headless` |
 
 All three runtime variants should behave like normal browser runs. They disable
 runtime-managed replay cache in their profile configuration.
@@ -55,6 +55,10 @@ Known caveat: Docker + Xvfb + container Chromium has shown a runtime-specific
 anomaly where blocked scripts can increase `inpPresentationDelayMs` while local
 headful/headless show improvement or neutral results. Treat Docker/Xvfb-only
 regressions as runtime-environment evidence until local controls confirm them.
+
+Known disabled scenario: `scenario-euro-promo-tag-click` is currently marked
+broken/disabled and excluded from default Euro methodology experiments because
+the live site no longer exposes a stable matching promo target.
 
 ## Repository Map
 
@@ -165,15 +169,15 @@ Runtime comparison smoke run:
 ```bash
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 ```
 
-Local runtime variants:
+Additional runtime variants:
 
 ```bash
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:local-headless
+npm run bench:runtime:euro:menu:docker-headful-xvfb
 
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
@@ -186,7 +190,7 @@ Debug run:
 BENCH_REPLICATES=1 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
 BENCH_DEBUG_ARTIFACTS=1 \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 ## Reading Results
@@ -239,7 +243,7 @@ For runtime/report changes, also run at least one small runtime comparison:
 ```bash
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 If changing runtime portability, run all three runtime variants with the same

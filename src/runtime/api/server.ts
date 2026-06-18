@@ -354,8 +354,27 @@ export async function startRuntimeApiServer(options?: {
     }
   });
 
-  await new Promise<void>((resolve) => server.listen(port, '0.0.0.0', resolve));
-  console.error(`Runtime driver API listening on :${port} (schema ${RUNTIME_API_SCHEMA})`);
+  await new Promise<void>((resolve, reject) => {
+    const handleError = (err: Error) => {
+      server.off('listening', handleListening);
+      reject(err);
+    };
+    const handleListening = () => {
+      server.off('error', handleError);
+      resolve();
+    };
+
+    server.once('error', handleError);
+    server.once('listening', handleListening);
+    server.listen(port, '0.0.0.0');
+  });
+
+  const address = server.address();
+  const actualPort =
+    address && typeof address !== 'string'
+      ? address.port
+      : port;
+  console.error(`Runtime driver API listening on :${actualPort} (schema ${RUNTIME_API_SCHEMA})`);
   return server;
 }
 

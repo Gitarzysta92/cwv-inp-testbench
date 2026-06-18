@@ -135,7 +135,50 @@ const webVitalsPath = fs.existsSync(webVitalsAttributionPath)
   ? webVitalsAttributionPath
   : path.join(process.cwd(), 'node_modules/web-vitals/dist/web-vitals.iife.js');
 
+let dotenvLoaded = false;
+
+function unquoteDotenvValue(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function loadDotenv(): void {
+  if (dotenvLoaded) {
+    return;
+  }
+  dotenvLoaded = true;
+
+  const dotenvPath = path.join(process.cwd(), '.env');
+  if (!fs.existsSync(dotenvPath)) {
+    return;
+  }
+
+  for (const line of fs.readFileSync(dotenvPath, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(trimmed);
+    if (!match) {
+      continue;
+    }
+
+    const [, name, rawValue] = match;
+    if (process.env[name] === undefined) {
+      process.env[name] = unquoteDotenvValue(rawValue);
+    }
+  }
+}
+
 export function env(name: string, fallback?: string): string {
+  loadDotenv();
   return process.env[name]?.trim() || fallback || '';
 }
 

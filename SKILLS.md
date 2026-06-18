@@ -66,6 +66,7 @@ Inputs:
 scenario: scenario-euro-open-menu
 profiles: baseline,euro-menu-baseline-scripts-blocked
 replicates: 3 for smoke, 10+ for stronger signal
+primary runtime: local-headless
 ```
 
 Commands:
@@ -73,11 +74,11 @@ Commands:
 ```bash
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:local-headless
+npm run bench:runtime:euro:menu:docker-headful-xvfb
 
 BENCH_REPLICATES=3 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
@@ -123,7 +124,7 @@ Command:
 BENCH_REPLICATES=1 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
 BENCH_DEBUG_ARTIFACTS=1 \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 Optional deeper debug:
@@ -134,7 +135,7 @@ BENCH_CPU_PROFILE=1 \
 BENCH_DEBUG_ARTIFACTS=1 \
 BENCH_REPLICATES=1 \
 BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
-npm run bench:runtime:euro:menu:docker-headful-xvfb
+npm run bench:runtime:euro:menu:local-headless
 ```
 
 Artifacts:

@@ -61,6 +61,29 @@ export function pageUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
 }
 
+export async function setSyzygyDevCookie(page: Page, baseUrl: string): Promise<void> {
+  const value = env('EURO_SYZYGY_DEV_COOKIE');
+  if (!value) {
+    return;
+  }
+
+  const url = new URL('/', baseUrl);
+  const euroCookieScope =
+    url.hostname === 'euro.com.pl' || url.hostname.endsWith('.euro.com.pl')
+      ? { domain: '.euro.com.pl', path: '/' }
+      : { url: url.toString() };
+
+  await page.context().addCookies([
+    {
+      name: 'syzygyDev',
+      value,
+      ...euroCookieScope,
+      sameSite: 'Lax',
+      secure: url.protocol === 'https:',
+    },
+  ]);
+}
+
 export async function clearConsentOverlay(page: Page): Promise<boolean> {
   return page.evaluate(() => {
     let removed = false;
@@ -351,6 +374,8 @@ export async function navigateToSmartphonesListing(
   page: Page,
   baseUrl: string,
 ): Promise<ListingState> {
+  await setSyzygyDevCookie(page, baseUrl);
+
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {

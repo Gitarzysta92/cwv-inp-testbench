@@ -3,11 +3,13 @@ import {
   clickByPattern,
   defineEuroScenarioTest,
   gotoEuroHome,
+  setSyzygyDevCookie,
   type EuroScenarioResult,
 } from './euro-helpers';
 
 async function exercisePromoTagClick(page: Page, baseUrl: string): Promise<EuroScenarioResult> {
   const startedAt = Date.now();
+  await setSyzygyDevCookie(page, baseUrl);
   await gotoEuroHome(page, baseUrl);
 
   const interactionStartedAt = Date.now();

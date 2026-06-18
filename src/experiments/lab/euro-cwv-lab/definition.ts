@@ -1,4 +1,4 @@
-import type { LabDefinition, Profile } from '../../../lab/types';
+import type { LabDefinition, Profile, Scenario } from '../../../lab/types';
 import { EURO_APP_URL, EURO_BLOCK_SCRIPT_PATTERNS, euroLiveProfile } from './profiles';
 
 export const EURO_MENU_SCENARIO_ID = 'scenario-euro-open-menu';
@@ -107,10 +107,22 @@ export const euroMenuMethodologyProfiles: Profile[] = [
   }),
 ];
 
+export const euroMenuMethodologyDisabledScenarios: Scenario[] = [
+  {
+    id: EURO_PROMO_TAG_CLICK_SCENARIO_ID,
+    label: 'Euro promotional tag click (broken)',
+    specPath: EURO_PROMO_TAG_CLICK_SPEC_PATH,
+    description: [
+      'Broken/disabled: the current live campaign no longer exposes a stable matching promo target',
+      'Kept as a catalog entry only; excluded from default methodology experiments',
+    ],
+  },
+];
+
 export const euroMenuMethodologyLab: LabDefinition = {
   lab: {
     cohort: {
-      hostClass: 'runtime-docker-isolated',
+      hostClass: 'runtime-local-headless',
       appVersion: 'dev',
     },
     methodology: {
@@ -180,16 +192,6 @@ export const euroMenuMethodologyLab: LabDefinition = {
         'Open the Euro home page',
         'Click a product box from a lower product carousel',
         'Record whether the PDP navigation is blocked by Euro',
-        'Measure INP through web-vitals/onINP',
-      ],
-    },
-    {
-      id: EURO_PROMO_TAG_CLICK_SCENARIO_ID,
-      label: 'Euro promotional tag click',
-      specPath: EURO_PROMO_TAG_CLICK_SPEC_PATH,
-      description: [
-        'Open the Euro home page',
-        'Click a promotional tag in the hero rotator navigation',
         'Measure INP through web-vitals/onINP',
       ],
     },

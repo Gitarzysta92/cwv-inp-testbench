@@ -16,7 +16,7 @@ Smaller probes may inline a minimal `LabDefinition` in `experiment.ts` and impor
 
 ### `euro-cwv-lab`
 
-Main Euro.com.pl study: 4 cache/network profiles × 14 user scenarios × 10 replicates, isolated Docker runtime per instruction.
+Main Euro.com.pl study: 4 cache/network profiles × 14 user scenarios × 10 replicates, primary local headless runtime per instruction.
 
 ```bash
 npm run bench:euro
@@ -38,7 +38,7 @@ Other Euro experiments import `definition.ts` / `profiles.ts` from here when the
 
 ### `euro-menu-probe`
 
-Single-scenario check (hamburger menu only). One shared runtime stack instead of per-instruction Docker.
+Single-scenario check (hamburger menu only). One shared runtime stack instead of per-instruction runtime instances.
 
 ```bash
 npx tsx src/experiments/lab/euro-menu-probe/experiment.ts --docker
