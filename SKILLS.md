@@ -56,6 +56,51 @@ npm run bench:runtime:euro:menu:local-headless
 Do not hardcode temporary test hosts into lab definitions. Prefer env overrides
 for one-off runs.
 
+## Skill: Configure Euro Access Cookie
+
+Use when Euro requires the `syzygyDev` cookie for local live-browser runs.
+
+Files:
+
+| File | Role |
+| --- | --- |
+| `.env.example` | Committed placeholder only |
+| `.env` | Local ignored secret values |
+| `src/scenarios/playwright-web-vitals/shared.ts` | Minimal `.env` loader |
+| `src/scenarios/playwright-web-vitals/euro-helpers.ts` | `setSyzygyDevCookie()` helper |
+
+Local setup:
+
+```bash
+cp .env.example .env
+```
+
+Then set the value locally:
+
+```text
+EURO_SYZYGY_DEV_COOKIE=<cookie-value>
+```
+
+Rules:
+
+- Never commit `.env` or `.env.local`.
+- Never paste the cookie value into docs, source, tests, commit messages, or
+  benchmark output.
+- Commit only empty placeholders in `.env.example`.
+- Call `setSyzygyDevCookie(page, baseUrl)` before the first Euro navigation
+  when a scenario needs the cookie.
+- Listing scenarios already get the cookie through `navigateToSmartphonesListing()`.
+
+Verification:
+
+```bash
+git check-ignore -v .env .env.local
+git grep -l 'EURO_SYZYGY_DEV_COOKIE=.*[A-Za-z0-9]'
+```
+
+The first command should show `.gitignore` rules. The second command should
+return no tracked files with a populated placeholder.
+
 ## Skill: Run A Runtime Comparison
 
 Use when validating whether a runtime changes the measured INP behaviour.
@@ -232,15 +277,71 @@ Files:
 | `src/scenarios/playwright-web-vitals/euro-*.spec.ts` | Scenario implementation |
 | `src/scenarios/playwright-web-vitals/euro-helpers.ts` | Shared selectors/helpers |
 | `src/experiments/lab/euro-cwv-lab/definition.ts` | Scenario ID, spec path, description |
+| `README.md` | Scenario status table |
 
 Pattern:
 
-1. Define a stable scenario ID.
-2. Add a Playwright spec that calls `defineEuroScenarioTest`.
-3. Use `gotoEuroHome` or listing/PDP helpers where possible.
-4. Return `scenarioDurationMs`, `interactionWallMs`, and useful `meta`.
-5. Be defensive when Euro blocks PDP/listing navigation; record the blocked
-   state instead of pretending the full path succeeded.
+1. Define a stable scenario ID in `definition.ts`.
+   Use the existing `scenario-euro-*` naming pattern.
+2. Define a matching `*_SPEC_PATH` constant in `definition.ts`.
+3. Add a `src/scenarios/playwright-web-vitals/euro-*.spec.ts` file.
+4. Implement an `exercise*()` function that returns `EuroScenarioResult`.
+5. Register the spec with `defineEuroScenarioTest({ id, title, exercise })`.
+6. Use shared helpers such as `gotoEuroHome()`, `gotoEuroHomeSection()`,
+   `navigateToSmartphonesListing()`, `clickByPattern()`, and
+   `maybeClickByPattern()` before adding new selector logic.
+7. Call `setSyzygyDevCookie(page, baseUrl)` before first navigation if the
+   scenario does not use a helper that already sets it and the path needs the
+   cookie.
+8. Return `scenarioDurationMs`, `interactionWallMs`, `interactionLabel`, useful
+   `meta`, and any scenario-specific numeric `metrics`.
+9. Add the scenario to `euroMenuMethodologyLab.scenarios` only when it is stable
+   enough for the default methodology.
+10. If the scenario is useful but currently broken, add it to
+    `euroMenuMethodologyDisabledScenarios` instead and document why.
+11. Update the scenario table in `README.md`.
+
+Minimal spec shape:
+
+```ts
+import type { Page } from 'playwright';
+import {
+  defineEuroScenarioTest,
+  gotoEuroHome,
+  type EuroScenarioResult,
+} from './euro-helpers';
+
+async function exerciseExample(page: Page, baseUrl: string): Promise<EuroScenarioResult> {
+  const startedAt = Date.now();
+  await gotoEuroHome(page, baseUrl);
+
+  const interactionStartedAt = Date.now();
+  // Perform the measured user interaction here.
+
+  return {
+    scenarioDurationMs: Date.now() - startedAt,
+    interactionWallMs: Date.now() - interactionStartedAt,
+    interactionLabel: 'euro-example',
+    meta: {},
+  };
+}
+
+defineEuroScenarioTest({
+  id: 'scenario-euro-example',
+  title: 'euro example',
+  exercise: exerciseExample,
+});
+```
+
+Rules:
+
+- Scenario code owns the user interaction, not runtime setup.
+- Runtime code owns browser process, cache, network policy, and warmup.
+- Keep selectors resilient to Euro markup changes, but do not hide real
+  failures by matching unrelated UI.
+- For PDP/listing paths, record Euro block state in `meta` or metrics when that
+  state is part of the live-site behaviour.
+- Do not commit generated `bench-results/` output unless explicitly requested.
 
 Verification:
 
@@ -250,8 +351,102 @@ BENCH_PROFILE_IDS=baseline \
 npm run bench:euro
 ```
 
-If the full Euro lab is too broad, temporarily select the scenario in code or
-through an experiment wrapper before committing.
+For a narrower check, create or reuse a focused experiment wrapper that passes
+`scenarioIds: ['scenario-euro-example']` into `runEuroExperiment()`.
+
+## Skill: Add Or Change A Euro Profile
+
+Use when changing cache, blocking, warmup, or target-network behaviour for Euro
+measurements.
+
+Files:
+
+| File | Role |
+| --- | --- |
+| `src/experiments/lab/euro-cwv-lab/profiles.ts` | Euro defaults, script block patterns, profile builder |
+| `src/experiments/lab/euro-cwv-lab/definition.ts` | Active profile list |
+| `src/runtime/essentials/` | Shared runtime profile contract |
+| `src/runtime/*.ts` | Runtime-specific profile adjustments |
+| `README.md` | Profile table and methodology notes |
+
+Pattern:
+
+1. Add or update the profile in `euroMenuMethodologyProfiles`.
+2. Keep IDs stable and descriptive because they appear in reports.
+3. Keep `baseline` as the only baseline role unless the methodology changes.
+4. Use abort-only script blocking through `blockScripts`.
+5. Do not reintroduce `blockScriptsMode` or `empty-response`.
+6. Prefer `EURO_APP_URL` or `PLAYWRIGHT_BASE_URL` for target changes instead of
+   hardcoding temporary hosts.
+7. Document new first-class profiles in `README.md`.
+
+Verification:
+
+```bash
+npx tsc --noEmit
+BENCH_REPLICATES=1 \
+BENCH_PROFILE_IDS=baseline,<new-profile-id> \
+npm run bench:runtime:euro:menu:local-headless
+```
+
+## Skill: Add A Lab Experiment
+
+Use when adding a runnable study setup, focused wrapper, or one-off lab entry
+point.
+
+Files:
+
+| File | Role |
+| --- | --- |
+| `src/experiments/lab/<name>/experiment.ts` | CLI/run entry point |
+| `src/experiments/lab/<name>/definition.ts` | LabDefinition, when the experiment owns one |
+| `src/experiments/lab/<name>/profiles.ts` | Profile helpers, when not shared |
+| `package.json` | npm script, if the experiment should be first-class |
+| `src/experiments/README.md` | Global experiment index |
+| `src/experiments/lab/README.md` | Lab-specific experiment index |
+
+Choose the shape:
+
+| Shape | Use |
+| --- | --- |
+| Full lab | The experiment owns its own methodology, profiles, or scenario set |
+| Focused wrapper | The experiment reuses an existing lab and selects scenarios/profiles |
+| Probe | The experiment is a temporary or diagnostic check with limited scope |
+
+Pattern for a focused Euro wrapper:
+
+```ts
+import { runEuroExperiment, type RunEuroExperimentOptions } from '../euro-cwv-lab/experiment';
+import { EURO_MENU_SCENARIO_ID } from '../euro-cwv-lab/definition';
+
+export async function runEuroMenuLab(
+  options: Omit<RunEuroExperimentOptions, 'scenarioIds' | 'title'> = {},
+) {
+  return runEuroExperiment({
+    ...options,
+    scenarioIds: [EURO_MENU_SCENARIO_ID],
+    title: 'Euro menu lab',
+  });
+}
+```
+
+Rules:
+
+- Put methodology and scenario catalog changes in the lab definition layer.
+- Keep runtime selection in the entry point or runtime-specific wrapper.
+- Add an npm script only for commands that should be discoverable and reused.
+- Document the command and result interpretation in the appropriate README.
+- Keep generated outputs out of commits unless requested.
+
+Verification:
+
+```bash
+npx tsc --noEmit
+BENCH_REPLICATES=1 npm run <new-script>
+```
+
+If the experiment changes runtime portability or report contract, also run the
+small runtime comparison from `Skill: Run A Runtime Comparison`.
 
 ## Skill: Investigate Docker + Xvfb Differences
 

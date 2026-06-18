@@ -1,153 +1,130 @@
 # CWV Test Bench
 
-Lab do porownywania wplywu konfiguracji runtime na Core Web Vitals, przede
-wszystkim INP, dla realnych scenariuszy uzytkownika.
+This repository is a Core Web Vitals test bench for measuring real user paths
+under controlled browser runtime conditions. The current main target is
+Euro.com.pl, with the primary focus on INP.
 
-For English onboarding, start with [AGENTS.md](./AGENTS.md). Operational
-playbooks for common project tasks are in [SKILLS.md](./SKILLS.md).
+Start here:
 
-Aktualny glowny przypadek uzycia to `euro.com.pl`: scenariusze Playwright
-wykonuja konkretne akcje uzytkownika, runtime kontroluje przegladarke i siec,
-a lab agreguje wyniki z wielu przebiegow.
+| Document | Use |
+| --- | --- |
+| [AGENTS.md](./AGENTS.md) | Agent/contributor onboarding, current objective, repository map, guardrails |
+| [SKILLS.md](./SKILLS.md) | Operational playbooks for recurring tasks |
+| [src/experiments/README.md](./src/experiments/README.md) | Experiment layout and extension rules |
+| [src/experiments/lab/README.md](./src/experiments/lab/README.md) | Lab experiment entry points |
+| [src/experiments/runtime/README.md](./src/experiments/runtime/README.md) | Runtime comparison and smoke-test entry points |
 
-## Architektura
+## What This Bench Does
+
+The bench runs Playwright scenarios against a real page, collects web-vitals and
+scenario-level timing data, repeats each profile/scenario combination, and
+aggregates the observations into reports.
 
 ```mermaid
 flowchart TD
-  A["Experiment config<br/>profiles x scenarios x runs"] --> B["Orchestrator"]
-
-  B --> C["Scheduler<br/>tworzy plaska liste uruchomien"]
-  C --> D["Run instruction<br/>profile + scenario + runIndex"]
-
-  D --> E["Runtime local headless<br/>izolowane srodowisko per run"]
-
-  E --> E1["Chrome / Playwright endpoint"]
-  E --> E2["Warmup cache"]
-  E --> E3["Custom network cache / replay"]
-  E --> E4["Blocking external scripts"]
-  E --> E5["Network stats"]
-
-  E1 --> F["Client<br/>playwright-web-vitals"]
-
-  F --> G["Scenario<br/>akcja uzytkownika"]
-  G --> H["web-vitals<br/>INP / timing"]
-  E5 --> I["Raw observation"]
-
-  H --> I
-  I --> J["Lab analysis"]
-
-  J --> J1["Kwalifikacja probek<br/>metricBoundaries"]
-  J --> J2["Median / mean / min / max / delta"]
-  J --> J3["Porownanie do baseline"]
-  J --> J4["Gate<br/>acceptable delta"]
-
-  J --> K["Report<br/>wynik eksperymentu"]
+  A["LabDefinition<br/>profiles x scenarios x runs"] --> B["Orchestrator"]
+  B --> C["Scheduler<br/>interleaved run plan"]
+  C --> D["Run instruction<br/>profile + scenario + run index"]
+  D --> E["Runtime<br/>local headless Chromium by default"]
+  E --> F["Playwright client"]
+  F --> G["Scenario<br/>user interaction"]
+  G --> H["web-vitals + scenario timings"]
+  E --> I["Runtime/network metadata"]
+  H --> J["Observation JSON"]
+  I --> J
+  J --> K["Lab aggregate"]
+  K --> L["report.json + report.tsv"]
 ```
 
-## Podzial Odpowiedzialnosci
+## Ownership Boundaries
 
-```mermaid
-flowchart TB
-  subgraph Runtime
-    R1["uruchamia browser"]
-    R2["robi warmup"]
-    R3["obsluguje cache/replay"]
-    R4["blokuje requesty/skrypty"]
-    R5["zbiera network stats"]
-  end
+Keep the system split across these layers:
 
-  subgraph Client
-    C1["odpala Playwright"]
-    C2["wykonuje scenariusz"]
-    C3["zbiera web-vitals"]
-  end
+| Layer | Owns | Main files |
+| --- | --- | --- |
+| Lab | Methodology, profiles, scenarios, validation, aggregation | `src/experiments/lab/`, `src/lab/` |
+| Runtime | Browser process/session, target URL, network policy, warmup | `src/runtime/`, `src/runtime/essentials/` |
+| Client/scenario | Playwright user path and web-vitals collection | `src/scenarios/playwright-web-vitals/` |
+| Orchestrator | Scheduling, runtime API calls, persistence | `src/orchestrator/` |
 
-  subgraph Orchestrator
-    O1["buduje plan uruchomien"]
-    O2["odpala runtime per run"]
-    O3["zapisuje raw results"]
-  end
+Do not put scenario behaviour into runtime code. Do not put browser or network
+setup into scenario code when the runtime API already owns it.
 
-  subgraph Lab
-    L1["agreguje wyniki"]
-    L2["liczy statystyki kwalifikowanych probek"]
-    L3["porownuje profile"]
-    L4["generuje raport"]
-  end
+## Repository Map
 
-  Orchestrator --> Runtime
-  Runtime --> Client
-  Client --> Orchestrator
-  Orchestrator --> Lab
-```
+| Path | Purpose |
+| --- | --- |
+| `src/experiments/lab/euro-cwv-lab/` | Main Euro lab definition: profiles, scenarios, methodology |
+| `src/experiments/lab/euro-menu-lab/` | Focused hamburger-menu lab wrapper |
+| `src/experiments/runtime/` | Runtime-specific Euro menu runs and replay smoke tests |
+| `src/runtime/*.ts` | Concrete runtime implementations |
+| `src/runtime/essentials/` | Shared runtime API and core types |
+| `src/runtime/driver/cdp/` | CDP browser session, blocking, warmup, response cache |
+| `src/scenarios/playwright-web-vitals/` | Playwright scenarios and instrumentation helpers |
+| `src/lab/` | Report contract, aggregation, validation, result writer |
+| `src/orchestrator/` | Session loop, scheduling, runtime API client |
+| `bench-results/` | Generated observations and reports; do not commit by default |
 
-## Model Metodyki
+## Euro Runtime Model
 
-```mermaid
-flowchart LR
-  P["Profiles<br/>baseline, cold, cache disabled,<br/>scripts blocked"] --> X["Cross product"]
-  S["Scenarios<br/>menu, search, listing,<br/>PDP, cart"] --> X
-  R["Runs<br/>np. 5 teraz, docelowo 100"] --> X
+The current primary methodology is live local Chromium headless. Offline replay
+and Docker/Xvfb are useful controls, but they are not the primary evidence path.
 
-  X --> O["Orchestrator schedule<br/>interleave"]
-  O --> N["Raw observations"]
-  N --> L["Lab methodology"]
-  L --> V["Wynik statystyczny"]
-```
-
-Orchestrator nie liczy wyniku metodologicznego. Jego odpowiedzialnosc to
-rozwiniecie `profiles x scenarios x runs` do plaskiej listy instrukcji i
-uruchomienie ich w izolowanym runtime.
-
-Lab dostaje raw observations i dopiero tam liczy wynik.
-
-## Metodyka Liczenia
-
-Kazdy run zapisuje raw observation dla kombinacji:
+The main comparison is:
 
 ```text
-profile x scenario x run
+baseline vs euro-menu-baseline-scripts-blocked
 ```
 
-Agregacja jest liczona osobno dla:
+Run it across these runtime variants when validating portability:
+
+| Runtime | Script |
+| --- | --- |
+| Local Chromium headless (primary) | `npm run bench:runtime:euro:menu:local-headless` |
+| Docker + Xvfb + container Chromium | `npm run bench:runtime:euro:menu:docker-headful-xvfb` |
+| Local Chromium headful | `npm run bench:runtime:euro:menu:local-headful` |
+
+All three runtime comparison variants disable runtime-managed replay cache so
+they behave like normal browser runs.
+
+Known caveat: Docker + Xvfb can diverge from local Chromium. If only Docker/Xvfb
+shows a regression, compare against both local runtime variants before treating
+it as page behaviour.
+
+## Environment Variables
+
+| Variable | Scope | Notes |
+| --- | --- | --- |
+| `EURO_APP_URL` | Euro profile builder | Default target URL for Euro profiles; falls back to `https://www.euro.com.pl/` |
+| `PLAYWRIGHT_BASE_URL` | Runtime/client override | Generic override that wins over profile `network.baseUrl` |
+| `EURO_SYZYGY_DEV_COOKIE` | Scenario helper | Optional value for the `syzygyDev` cookie |
+| `BENCH_REPLICATES` | Lab methodology | Overrides replicate count |
+| `BENCH_PROFILE_IDS` | Euro lab runner | Comma-separated subset of profile IDs |
+| `BENCH_DEBUG_ARTIFACTS` | Scenario diagnostics | Enables screenshots, network/console dumps, and debug JSON |
+| `BENCH_CHROME_TRACE` | Scenario diagnostics | Captures Chrome trace artifacts when supported |
+| `BENCH_CPU_PROFILE` | Scenario diagnostics | Captures CPU profile artifacts when supported |
+
+Secrets belong in local `.env`, not in committed files:
 
 ```text
-profileId x scenarioId x clientId x metric
+EURO_SYZYGY_DEV_COOKIE=
 ```
 
-Dla kazdej metryki:
+`.env` and `.env.local` are ignored by git. Commit only `.env.example` with
+empty placeholders.
 
-1. brane sa tylko poprawne obserwacje (`status = ok`),
-2. raw values sa zapisywane w raporcie dla audytu,
-3. wartosci sa kwalifikowane wedlug `metricBoundaries`, np. `inpMs: 10..300`,
-4. wyniki poza zakresem sa raportowane jako out-of-range, a nie mieszane z wynikiem bazowym,
-5. dla wartosci kwalifikujacych sie liczone sa: mediana, srednia, min, max i delta (`max - min`),
-6. liczony jest procent out-of-range wzgledem wszystkich runow,
-7. liczone sa delty wzgledem baseline dla mediany, sredniej i delty.
+## Euro Methodology
 
-Raport nie liczy percentyli. Podstawowy model oceny to
-mediana/srednia/min/max/delta po kwalifikacji.
+Current active profiles:
 
-`scenarioDurationMs` to calkowity czas wykonania scenariusza od startu do konca:
-nawigacja, oczekiwanie na load, czyszczenie overlayow, akcja uzytkownika i
-kontrole po akcji. To nie jest samo INP.
+| Profile | Purpose |
+| --- | --- |
+| `baseline` | Warmed browser cache and default runtime network behaviour |
+| `euro-menu-baseline-scripts-blocked` | Baseline profile with external scripts blocked |
+| `euro-menu-browser-cache-cold` | Cold browser cache |
+| `euro-menu-browser-cache-disabled` | Browser cache disabled and runtime network cache disabled |
 
-`interactionWallMs` to czas od rozpoczecia mierzonej akcji uzytkownika do
-zakonczenia kontroli po tej akcji. Dla hamburgera obejmuje klikniecie, wykrycie
-menu albo odczyt INP oraz stabilizacyjny wait scenariusza.
-
-## Profile Euro
-
-Aktualny eksperyment Euro porownuje:
-
-| Profil | Cel |
-|---|---|
-| `baseline` | warmed browser cache + runtime cache |
-| `euro-menu-baseline-scripts-blocked` | baseline warm cache + blokowanie external scripts |
-| `euro-menu-browser-cache-cold` | zimny browser cache |
-| `euro-menu-browser-cache-disabled` | browser cache disabled + runtime network cache disabled |
-
-Glowna metryka metodologii:
+Current methodology:
 
 ```text
 metric: inpMs
@@ -155,102 +132,155 @@ metricBoundaries: inpMs 10..300, eventTimingMaxMs 10..300
 summary: median / mean / min / max / delta / out-of-range
 schedule: interleave
 gate: baseline + acceptableDeltaMs = 40
+default replicates: 10
 ```
 
-## Scenariusze Euro
+Current Euro scenarios:
 
-Scenariusze sa trzymane jako osobne pliki w
-`src/scenarios/playwright-web-vitals`.
-
-Aktualnie mamy m.in.:
-
-| Scenariusz | Plik | Status |
-|---|---|---|
-| hamburger menu | `euro-open-menu.spec.ts` | active |
-| search layer | `euro-search-layer.spec.ts` | active |
-| rotator banner click | `euro-rotator-banner-click.spec.ts` | active |
-| product box to PDP | `euro-product-box-to-pdp.spec.ts` | active |
-| product box card click | `euro-product-box-card-click.spec.ts` | active |
-| promo tag click | `euro-promo-tag-click.spec.ts` | broken/disabled |
-| listing open filters | `euro-listing-open-filters.spec.ts` | active |
-| add to cart | `euro-add-to-cart.spec.ts` | active |
-| standard/installments tab | `euro-product-standard-installments-tab.spec.ts` | active |
-| listing sort | `euro-listing-sort.spec.ts` | active |
-| listing quick filter | `euro-listing-quick-filter.spec.ts` | active |
-| listing brand filter | `euro-listing-brand-filter.spec.ts` | active |
-| listing price filter | `euro-listing-price-filter.spec.ts` | active |
-| listing scroll products | `euro-listing-scroll-products.spec.ts` | active |
+| Scenario | Spec | Status |
+| --- | --- | --- |
+| Hamburger menu | `euro-open-menu.spec.ts` | active |
+| Search layer | `euro-search-layer.spec.ts` | active |
+| Rotator banner click | `euro-rotator-banner-click.spec.ts` | active |
+| Product box to PDP | `euro-product-box-to-pdp.spec.ts` | active |
+| Product box card click | `euro-product-box-card-click.spec.ts` | active |
+| Listing open filters | `euro-listing-open-filters.spec.ts` | active |
+| Add to cart | `euro-add-to-cart.spec.ts` | active |
+| Standard/installments tab | `euro-product-standard-installments-tab.spec.ts` | active |
+| Listing sort | `euro-listing-sort.spec.ts` | active |
+| Listing quick filter | `euro-listing-quick-filter.spec.ts` | active |
+| Listing brand filter | `euro-listing-brand-filter.spec.ts` | active |
+| Listing price filter | `euro-listing-price-filter.spec.ts` | active |
+| Listing scroll products | `euro-listing-scroll-products.spec.ts` | active |
+| Promo tag click | `euro-promo-tag-click.spec.ts` | broken/disabled |
 
 `promo tag click` is kept as a disabled catalog entry because the current live
 campaign no longer exposes a stable matching target. It is excluded from the
 default Euro methodology experiments.
 
-Scenariusze PDP/listing sa defensywne wobec blokady Euro: kiedy strona zwroci
-block page, zapisujemy ten stan w `meta`/`metrics` zamiast falszowac pelna
-sciezke.
+PDP and listing scenarios must be defensive around Euro block pages. If the page
+blocks the path, record that state in metrics or `meta` instead of pretending
+the full path succeeded.
 
-## Przykladowy Wynik
+## Running
 
-Sesja: `e8bae544-a99c-4657-9be8-8548f91a25f4`  
-Scenariusz: `scenario-euro-open-menu`  
-Replikacje: `10` na profil
-
-| Profil | INP median | INP mean | Out-of-range | INP min | INP max | INP delta |
-|---|---:|---:|---:|---:|---:|---:|
-| baseline | 40 ms | 36.8 ms | 0% | 32 ms | 40 ms | 8 ms |
-| cold browser cache | 40 ms | 38.4 ms | 0% | 32 ms | 48 ms | 16 ms |
-| cache disabled | 32 ms | 35.2 ms | 0% | 32 ms | 40 ms | 8 ms |
-| external scripts blocked | 32 ms | 33.6 ms | 0% | 24 ms | 40 ms | 16 ms |
-
-Wniosek z malej proby: blokowanie external scripts poprawilo median INP o ok.
-`8 ms` wzgledem baseline. To jest sygnal kierunku, nie finalny wniosek
-statystyczny. Docelowo potrzebujemy wiecej scenariuszy i wiecej replikacji,
-np. `100` runow na profil.
-
-## Uruchamianie
-
-Instalacja zaleznosci:
+Install dependencies:
 
 ```bash
 npm ci
 ```
 
-Sprawdzenie TypeScript:
+Typecheck:
 
 ```bash
 npx tsc --noEmit
 ```
 
-Opcjonalny build obrazu Docker runtime:
-
-```bash
-npm run runtime:docker:build
-```
-
-Eksperyment Euro przez primary local headless runtime:
+Run the main Euro lab through the primary local headless runtime:
 
 ```bash
 npm run bench:euro
 ```
 
-Szybszy wariant — tylko hamburger menu (4 profile × 5 replik = 20 kroków):
+Run the focused hamburger-menu lab:
 
 ```bash
 npm run bench:euro:menu
 ```
 
-Szczegoly typow eksperymentow (lab / runtime / import): `src/experiments/README.md`.
-
-Liczbe replikacji mozna nadpisac:
+Run the current primary comparison as a small smoke check:
 
 ```bash
-BENCH_REPLICATES=100 npm run bench:euro
+BENCH_REPLICATES=3 \
+BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
+npm run bench:runtime:euro:menu:local-headless
 ```
 
-Wyniki trafiaja do:
+Run all runtime controls with the same inputs:
+
+```bash
+BENCH_REPLICATES=3 \
+BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
+npm run bench:runtime:euro:menu:docker-headful-xvfb
+
+BENCH_REPLICATES=3 \
+BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
+npm run bench:runtime:euro:menu:local-headful
+```
+
+Run with debug artifacts:
+
+```bash
+BENCH_REPLICATES=1 \
+BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
+BENCH_DEBUG_ARTIFACTS=1 \
+npm run bench:runtime:euro:menu:local-headless
+```
+
+## Reading Results
+
+Reports are written to:
 
 ```text
 bench-results/observations/<sessionId>/
 bench-results/summary/<sessionId>/report.json
 bench-results/summary/<sessionId>/report.tsv
 ```
+
+Use `report.tsv` for quick comparisons. Important columns:
+
+| Column | Meaning |
+| --- | --- |
+| `profileId` | Tested profile |
+| `scenarioId` | Tested scenario |
+| `metric` | Aggregated metric |
+| `median`, `mean`, `min`, `max` | Qualified sample statistics |
+| `delta` | `max - min` inside this row |
+| `baselineMedianDelta` | Difference vs baseline profile |
+| `gate` | Pass/fail only for the methodology primary metric |
+
+For INP diagnosis, read `inpPresentationDelayMs`, `inpInputDelayMs`, and
+`inpProcessingDurationMs` alongside `inpMs`.
+
+## How To Extend
+
+Use [SKILLS.md](./SKILLS.md) for step-by-step playbooks. The short version:
+
+| Task | Start here |
+| --- | --- |
+| Add a Euro user path | `Skill: Add A Euro Scenario` |
+| Add or change a profile | `Skill: Add Or Change A Euro Profile` |
+| Add a lab experiment wrapper | `Skill: Add A Lab Experiment` |
+| Add a runtime variant | `Skill: Add Or Change A Runtime` |
+| Add a report column | `Skill: Change Report Metrics` |
+
+When adding a scenario, create a `euro-*.spec.ts` file, register a stable ID and
+spec path in `src/experiments/lab/euro-cwv-lab/definition.ts`, and include it in
+`euroMenuMethodologyLab.scenarios` only after it is stable enough for the default
+methodology. If a scenario is useful for reference but currently broken, keep it
+in `euroMenuMethodologyDisabledScenarios` instead.
+
+When adding an experiment, keep the `LabDefinition` in the lab layer and use an
+`experiment.ts` entry point or wrapper to select profiles, scenarios, replicates,
+and runtime. Add an npm script only when the experiment should be a first-class
+command.
+
+## Verification Before Handoff
+
+For code changes:
+
+```bash
+npx tsc --noEmit
+git diff --check
+```
+
+For runtime or report changes, also run at least one small runtime comparison:
+
+```bash
+BENCH_REPLICATES=3 \
+BENCH_PROFILE_IDS=baseline,euro-menu-baseline-scripts-blocked \
+npm run bench:runtime:euro:menu:local-headless
+```
+
+If changing runtime portability, run all three runtime variants with the same
+profiles and replicate count.

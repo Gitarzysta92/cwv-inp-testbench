@@ -6,7 +6,7 @@ Experiments are grouped by **what they do**, not by app (Euro vs Google):
 
 | Type | Directory | Question it answers |
 |------|-----------|---------------------|
-| [Lab](./lab/README.md) | `lab/` | What is INP under these profiles × scenarios × runs? |
+| [Lab](./lab/README.md) | `lab/` | What is INP under these profiles x scenarios x runs? |
 | [Runtime](./runtime/README.md) | `runtime/` | Does runtime/CDP (cache, replay, blocking) work correctly? |
 | [Import](./import/README.md) | `import/` | How do we load already-measured rows into `bench-results/`? |
 
@@ -33,7 +33,7 @@ Every experiment folder follows one of three shapes:
 ```
 <name>/
   experiment.ts     # CLI
-  measurements.ts   # raw rows (profile × replicate × metrics)
+  measurements.ts   # raw rows (profile x replicate x metrics)
   publish.ts        # build observations, reports, Jira export
 ```
 
@@ -70,3 +70,15 @@ run the lab pipeline for their runtime and write the same `report.json` /
 2. Create `src/experiments/<type>/<short-name>/` using the file layout above.
 3. Wire an npm script in `package.json` if it should be a one-liner to run.
 4. Document it in the README for that type.
+
+Use the detailed playbooks in [../../SKILLS.md](../../SKILLS.md):
+
+| Task | Skill |
+|------|-------|
+| Add a Euro scenario to an existing lab | `Add A Euro Scenario` |
+| Add or change Euro profile methodology | `Add Or Change A Euro Profile` |
+| Add a focused lab wrapper or full lab | `Add A Lab Experiment` |
+| Add a runtime-specific experiment | `Add Or Change A Runtime` |
+
+Do not add scenarios directly to runtime experiments. Runtime experiments prove
+browser/CDP behaviour; lab experiments own user paths and methodology.
