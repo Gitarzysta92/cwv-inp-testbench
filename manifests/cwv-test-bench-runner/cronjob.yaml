@@ -36,7 +36,7 @@ spec:
             fsGroup: 1000
           containers:
             - name: bench
-              image: ghcr.io/gitarzysta92/cwv-inp-testbench:latest
+              image: ghcr.io/gitarzysta92/cwv-inp-testbench:sha-5bdd4de3acb484dbdaf3868fe57a2eeac2810f07
               imagePullPolicy: Always
               env:
                 - name: CI

@@ -9,7 +9,7 @@ variables:
   gitRepositoryUrl: https://github.com/Gitarzysta92/cwv-inp-testbench.git
   environmentGitRevision: main
   applicationGitRevision: main
-  imageTag: latest
+  imageTag: sha-5bdd4de3acb484dbdaf3868fe57a2eeac2810f07
 spec:
   solutionRef:
     name: cwv-test-bench
