@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cwv-test-bench-results
+  labels:
+    app.kubernetes.io/name: cwv-test-bench-runner
+    app.kubernetes.io/component: benchmark-results
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

@@ -227,6 +227,19 @@ bench-results/summary/<sessionId>/report.json
 bench-results/summary/<sessionId>/report.tsv
 ```
 
+Set `BENCH_OPENSEARCH_URL` to also publish each completed session to
+OpenSearch. The publisher creates the target index if it is missing and writes
+one session document plus summary and observation documents.
+
+```bash
+BENCH_OPENSEARCH_URL=https://opensearch-cluster-master.platform-shared-resources.svc.cluster.local:9200 \
+BENCH_OPENSEARCH_INDEX=cwv-bench-runs \
+BENCH_OPENSEARCH_USERNAME='<writer-username>' \
+BENCH_OPENSEARCH_PASSWORD='<writer-password>' \
+BENCH_OPENSEARCH_INSECURE_TLS=1 \
+npm run bench:runtime:euro:menu:local-headless
+```
+
 Use `report.tsv` for quick comparisons. Important columns:
 
 | Column | Meaning |
@@ -253,6 +266,20 @@ Use [SKILLS.md](./SKILLS.md) for step-by-step playbooks. The short version:
 | Add a lab experiment wrapper | `Skill: Add A Lab Experiment` |
 | Add a runtime variant | `Skill: Add Or Change A Runtime` |
 | Add a report column | `Skill: Change Report Metrics` |
+
+## Threesixty Platform
+
+The GitOps-first solution setup lives in
+[docs/threesixty-platform-integration.md](./docs/threesixty-platform-integration.md).
+It is meant for GitHub App onboarding as an external solution, not as a
+built-in `threesixty-platform` repository solution.
+
+The onboarding entry point is `.platform/cwv-test-bench.environment.yaml`.
+It selects the service workload manifests in `manifests/cwv-test-bench-runner`.
+The assumed OpenSearch index claim is declared directly in the environment
+manifest under `spec.manifests.resourceClaims`.
+The packed runner image is built and pushed by
+`.github/workflows/cwv-test-bench-image.yaml`.
 
 When adding a scenario, create a `euro-*.spec.ts` file, register a stable ID and
 spec path in `src/experiments/lab/euro-cwv-lab/definition.ts`, and include it in

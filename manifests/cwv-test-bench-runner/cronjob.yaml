@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cwv-test-bench-runner
+  annotations:
+    description: >-
+      Suspended Euro CWV benchmark runner. Create an ad-hoc Job from this
+      CronJob, or unsuspend it after a benchmark cadence is agreed.
+    platform.threesixty.dev/readiness-gate: >-
+      Keep suspended until the opensearch-index claim is Ready and the
+      cwv-test-bench-opensearch-writer Secret exists.
+  labels:
+    app.kubernetes.io/name: cwv-test-bench-runner
+    app.kubernetes.io/component: benchmark-runner
+spec:
+  schedule: "0 2 * * *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cwv-test-bench-runner
+            app.kubernetes.io/component: benchmark-runner
+        spec:
+          serviceAccountName: cwv-test-bench-runner
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: bench
+              image: ghcr.io/gitarzysta92/cwv-inp-testbench:latest
+              imagePullPolicy: Always
+              env:
+                - name: CI
+                  value: "true"
+                - name: BENCH_REPLICATES
+                  value: "3"
+                - name: BENCH_PROFILE_IDS
+                  value: baseline,euro-menu-baseline-scripts-blocked
+                - name: EURO_APP_URL
+                  value: https://www.euro.com.pl/
+                - name: BENCH_OPENSEARCH_URL
+                  value: https://opensearch-cluster-master.platform-shared-resources.svc.cluster.local:9200
+                - name: BENCH_OPENSEARCH_INDEX
+                  value: cwv-bench-runs
+                - name: BENCH_OPENSEARCH_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: cwv-test-bench-opensearch-writer
+                      key: username
+                - name: BENCH_OPENSEARCH_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: cwv-test-bench-opensearch-writer
+                      key: password
+                - name: BENCH_OPENSEARCH_INSECURE_TLS
+                  value: "1"
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+                - name: dshm
+                  mountPath: /dev/shm
+                - name: results
+                  mountPath: /app/bench-results
+              resources:
+                requests:
+                  cpu: 1000m
+                  memory: 2Gi
+                  ephemeral-storage: 2Gi
+                limits:
+                  cpu: "3"
+                  memory: 4Gi
+                  ephemeral-storage: 8Gi
+          volumes:
+            - name: tmp
+              emptyDir: {}
+            - name: dshm
+              emptyDir:
+                medium: Memory
+                sizeLimit: 1Gi
+            - name: results
+              persistentVolumeClaim:
+                claimName: cwv-test-bench-results

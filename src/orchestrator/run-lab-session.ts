@@ -1,5 +1,9 @@
 import { randomUUID } from 'crypto';
 import { createLabResultsService, validateLab } from '../lab';
+import {
+  publishLabSessionToOpenSearch,
+  readOpenSearchPublishConfigFromEnv,
+} from '../lab/opensearch';
 import { reportStoragePaths } from '../lab/report';
 import { prepareRuntimeContext } from '../runtime/essentials';
 import { resolveBrowserConnect } from '../clients';
@@ -195,6 +199,18 @@ export async function runLabSession(options: RunLabSessionOptions): Promise<RunL
 
   console.error(`\nWrote ${observations.length} observation(s) under ${observationsDir}`);
   console.error(`Wrote report under ${summaryDir}`);
+
+  const openSearchConfig = readOpenSearchPublishConfigFromEnv();
+  if (openSearchConfig) {
+    const published = await publishLabSessionToOpenSearch({
+      config: openSearchConfig,
+      report,
+      observations,
+    });
+    console.error(
+      `Published ${published.documents} OpenSearch document(s) to ${published.index}`,
+    );
+  }
 
   return { sessionId, observations, report, failures };
 }

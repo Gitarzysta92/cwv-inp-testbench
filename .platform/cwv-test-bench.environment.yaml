@@ -1,0 +1,67 @@
+apiVersion: platform.threesixty.dev/v1alpha1
+kind: SolutionEnvironment
+metadata:
+  name: cwv-test-bench
+  namespace: platform-integration-claims
+  labels:
+    platform.threesixty.dev/solution: cwv-test-bench
+variables:
+  gitRepositoryUrl: https://github.com/Gitarzysta92/cwv-inp-testbench.git
+  environmentGitRevision: main
+  applicationGitRevision: main
+  imageTag: latest
+spec:
+  solutionRef:
+    name: cwv-test-bench
+  environmentSource:
+    repoURL: ${gitRepositoryUrl}
+    targetRevision: ${environmentGitRevision}
+  source:
+    repoURL: ${gitRepositoryUrl}
+    targetRevision: ${applicationGitRevision}
+  manifests:
+    workloads:
+      - ref: cwv-test-bench-runner
+        path: manifests/cwv-test-bench-runner
+        cronJobs:
+          cwv-test-bench-runner:
+            image:
+              sourceName: ghcr.io/gitarzysta92/cwv-inp-testbench
+              name: ghcr.io/gitarzysta92/cwv-inp-testbench
+              tag: ${imageTag}
+    resourceClaims:
+      - ref: opensearch-index
+        openSearchIndexAccessClaims:
+          cwv-bench-runs:
+            indexPattern: cwv-bench-runs
+            description: Persisted CWV benchmark session, summary, and observation documents.
+            permissions:
+              - read
+              - write
+              - create_index
+            retentionDays: 180
+            writerSecret:
+              name: cwv-test-bench-opensearch-writer
+              namespace: cwv-test-bench-solution
+              keys:
+                username: username
+                password: password
+            mappings:
+              dynamic: true
+              properties:
+                generatedAt:
+                  type: date
+                documentType:
+                  type: keyword
+                sessionId:
+                  type: keyword
+                profileId:
+                  type: keyword
+                scenarioId:
+                  type: keyword
+                clientId:
+                  type: keyword
+                metric:
+                  type: keyword
+                status:
+                  type: keyword
