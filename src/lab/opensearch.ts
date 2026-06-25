@@ -154,6 +154,10 @@ async function ensureIndex(config: OpenSearchPublishConfig): Promise<void> {
     return;
   }
 
+  if (current.status === 403) {
+    return;
+  }
+
   if (current.status !== 404) {
     throw new Error(
       `OpenSearch index check failed for ${config.index}: ${current.status} ${current.statusText}`,
