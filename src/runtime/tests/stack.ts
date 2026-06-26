@@ -1,7 +1,9 @@
 import { spawn, type StdioOptions } from 'child_process';
 import { launch as launchChrome } from 'chrome-launcher';
+import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
+import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
 import { waitForBrowserAppliance } from '../driver/wait-for-browser';
 import { LIVE_APP_URL } from './fixtures';
@@ -51,6 +53,44 @@ function isChromeTempCleanupRace(err: unknown): boolean {
     candidate.syscall === 'rmdir' &&
     typeof candidate.path === 'string' &&
     path.basename(candidate.path).startsWith('lighthouse.')
+  );
+}
+
+function executablePath(candidate: string | undefined): string | undefined {
+  if (!candidate) {
+    return undefined;
+  }
+
+  try {
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return candidate;
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveChromePath(): string | undefined {
+  const configuredChromePath = executablePath(process.env['CHROME_PATH']);
+  if (configuredChromePath) {
+    return configuredChromePath;
+  }
+
+  try {
+    return executablePath(chromium.executablePath());
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldDisableChromeSandbox(): boolean {
+  const configured = process.env['BENCH_CHROME_NO_SANDBOX']?.trim().toLowerCase();
+  if (configured) {
+    return ['1', 'true', 'yes'].includes(configured);
+  }
+
+  return (
+    process.platform === 'linux' &&
+    (!!process.env['KUBERNETES_SERVICE_HOST'] || fs.existsSync('/.dockerenv'))
   );
 }
 
@@ -178,9 +218,11 @@ export async function upLocalStack(options?: {
   const windowSize = options?.windowSize;
 
   const chrome = await launchChrome({
+    chromePath: resolveChromePath(),
     port: requestedCdpPort,
     chromeFlags: [
       ...(headless ? ['--headless=new'] : []),
+      ...(shouldDisableChromeSandbox() ? ['--no-sandbox'] : []),
       '--disable-background-networking',
       '--disable-extensions',
       '--no-first-run',

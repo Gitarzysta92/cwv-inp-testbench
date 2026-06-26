@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
 
 const chromiumLabArgs = [
   '--disable-background-networking',
@@ -12,6 +13,11 @@ const chromiumLabArgs = [
 const baseURL = process.env['PLAYWRIGHT_BASE_URL'] ?? 'http://127.0.0.1:4200';
 const skipWebServer = !!process.env['PLAYWRIGHT_SKIP_WEBSERVER'];
 const orchestrated = process.env['BENCH_ORCHESTRATED'] === '1';
+const outputDir =
+  process.env['BENCH_PLAYWRIGHT_OUTPUT_DIR'] ??
+  (orchestrated && process.env['BENCH_RESULTS_DIR']
+    ? path.join(process.env['BENCH_RESULTS_DIR'], '_test-results')
+    : 'test-results');
 
 const viewportWidth = Number(process.env['BENCH_VIEWPORT_WIDTH'] ?? '1280');
 const viewportHeight = Number(process.env['BENCH_VIEWPORT_HEIGHT'] ?? '720');
@@ -31,6 +37,7 @@ const testTimeout = Number(
  */
 export default defineConfig({
   testDir: '../../scenarios/playwright-web-vitals',
+  outputDir,
   timeout: Number.isFinite(testTimeout) && testTimeout > 0 ? testTimeout : 120_000,
   fullyParallel: false,
   forbidOnly: !!process.env['CI'],

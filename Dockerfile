@@ -10,8 +10,8 @@ RUN npm ci
 COPY angular.json tsconfig.json tsconfig.app.json tsconfig.spec.json ./
 COPY src ./src
 
-RUN mkdir -p /app/bench-results \
-  && chown -R pwuser:pwuser /app/bench-results
+RUN mkdir -p /app/bench-results /app/test-results /app/playwright-report \
+  && chown -R pwuser:pwuser /app/bench-results /app/test-results /app/playwright-report
 
 USER pwuser
 
